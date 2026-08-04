@@ -130,24 +130,35 @@ export function InspectorDrawer({ job, selectedUrn, tab, onTab }: Props) {
 
         {tab === "fix" && (
           <div className="space-y-2">
-            {job.pr && (
-              <div className="rounded-md border border-line bg-canvas px-3 py-2 font-mono text-2xs text-mute">
-                <div className="text-faint">status</div>
-                <div className="text-ink">{job.pr.status}</div>
-                {job.pr.path && (
-                  <>
-                    <div className="mt-1 text-faint">path</div>
-                    <div className="break-all text-ink">{job.pr.path}</div>
-                  </>
-                )}
-                {job.pr.diff_summary && (
-                  <>
-                    <div className="mt-1 text-faint">summary</div>
-                    <div className="text-ink">{job.pr.diff_summary}</div>
-                  </>
-                )}
+            <div className="rounded-md border border-line bg-canvas px-3 py-2">
+              <div className="font-mono text-[10px] uppercase tracking-widest text-faint">
+                Remediation artifact
               </div>
-            )}
+              <p className="mt-1 text-2xs leading-relaxed text-mute">
+                Suggested SQL/dbt fix for the findings (dry-run when no GitHub
+                token). Review the diff below.
+              </p>
+              {job.pr && (
+                <dl className="mt-2 space-y-1 font-mono text-2xs text-mute">
+                  <div className="flex justify-between gap-2">
+                    <dt className="text-faint">status</dt>
+                    <dd className="text-ink">{job.pr.status}</dd>
+                  </div>
+                  {job.pr.path && (
+                    <div>
+                      <dt className="text-faint">path</dt>
+                      <dd className="mt-0.5 break-all text-ink">{job.pr.path}</dd>
+                    </div>
+                  )}
+                  {job.pr.diff_summary && (
+                    <div>
+                      <dt className="text-faint">summary</dt>
+                      <dd className="mt-0.5 text-ink">{job.pr.diff_summary}</dd>
+                    </div>
+                  )}
+                </dl>
+              )}
+            </div>
             <pre className="overflow-x-auto rounded-md border border-line bg-canvas p-3 font-mono text-2xs leading-relaxed text-mute">
               {DEMO_DIFF}
             </pre>
@@ -155,19 +166,35 @@ export function InspectorDrawer({ job, selectedUrn, tab, onTab }: Props) {
         )}
 
         {tab === "mbom" && (
-          <article className="prose-ms">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>
-              {DEMO_MBOM}
-            </ReactMarkdown>
-            {job.mbom?.document_urn && (
-              <p className="mt-3 font-mono text-2xs text-faint">
-                {job.mbom.document_urn}
+          <div className="space-y-3">
+            <div className="rounded-md border border-line bg-canvas px-3 py-2">
+              <div className="font-mono text-[10px] uppercase tracking-widest text-faint">
+                Audit attestation (MBOM)
+              </div>
+              <p className="mt-1 text-2xs leading-relaxed text-mute">
+                Durable record of findings, risk, quarantine, and fix so the next
+                operator inherits this job. When DataHub mutations are live this
+                is published via{" "}
+                <span className="font-mono text-ink">save_document</span>; offline
+                demo shows the shipped example below.
               </p>
-            )}
-            {job.mbom?.path && (
-              <p className="mt-1 font-mono text-2xs text-faint">{job.mbom.path}</p>
-            )}
-          </article>
+              {job.mbom?.document_urn && (
+                <p className="mt-2 font-mono text-2xs text-faint">
+                  doc · {job.mbom.document_urn}
+                </p>
+              )}
+              {job.mbom?.path && (
+                <p className="mt-0.5 font-mono text-2xs text-faint">
+                  path · {job.mbom.path}
+                </p>
+              )}
+            </div>
+            <article className="prose-ms">
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                {DEMO_MBOM}
+              </ReactMarkdown>
+            </article>
+          </div>
         )}
 
         {tab === "raw" && (

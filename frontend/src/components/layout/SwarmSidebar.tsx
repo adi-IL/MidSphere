@@ -8,6 +8,8 @@ interface AgentCardModel {
   short: string;
 }
 
+export type InspectorTab = "findings" | "gate" | "fix" | "mbom" | "raw";
+
 interface Props {
   agents: AgentCardModel[];
   /** Newest-first terminal stream (Sentinel-style). */
@@ -18,6 +20,8 @@ interface Props {
   onSelectAgent?: (name: AgentName | "ALL") => void;
   selectedAgent?: AgentName | "ALL";
   onClearLogs?: () => void;
+  /** Open inspector tab (e.g. from MBOM/PR log rows). */
+  onOpenTab?: (tab: InspectorTab) => void;
 }
 
 const AGENT_SHORT: Record<AgentName, string> = {
@@ -47,6 +51,76 @@ function displayMessage(e: JobEvent): string {
   m = m.replace(/^antigravity tool\s+/i, "");
   m = m.replace(/\s*\(demo_closed_loop; no live MCP call\)/gi, " · sim");
   return m;
+}
+
+/** Human-facing artifact rows (MBOM / PR) — not raw path dumps. */
+function parseArtifactRow(e: JobEvent): {
+  headline: string;
+  detail?: string;
+  tab?: InspectorTab;
+  cta?: string;
+} | null {
+  const m = e.message;
+  const lower = m.toLowerCase();
+
+  // Explicit CTA lines + raw mbom artifact path=... urn=...
+  if (
+    lower.includes("mbom ready") ||
+    lower.includes("open inspector → mbom") ||
+    lower.includes("open inspector -> mbom")
+  ) {
+    return {
+      headline: "MBOM ready — audit attestation for this job",
+      detail: "Open Inspector → MBOM to read findings, risk, quarantine, and lift criteria.",
+      tab: "mbom",
+      cta: "Open MBOM review →",
+    };
+  }
+  if (
+    e.kind === "MBOM" ||
+    lower.includes("mbom artifact") ||
+    (lower.includes("examples/mboms/") && lower.includes("urn="))
+  ) {
+    const pathMatch = m.match(/path[=:]?\s*(\S+\.md)/i);
+    const urnMatch = m.match(/urn=(urn:li:document:\S+)/i);
+    const path = pathMatch?.[1];
+    const urn = urnMatch?.[1];
+    return {
+      headline: "MBOM ready — audit attestation for this job",
+      detail: [
+        path ? `example file: ${path}` : null,
+        urn ? `doc id: ${urn}` : null,
+        "offline demo · open Inspector → MBOM to review",
+      ]
+        .filter(Boolean)
+        .join(" · "),
+      tab: "mbom",
+      cta: "Open MBOM review →",
+    };
+  }
+
+  // dry_run path=examples/prs/...
+  if (
+    e.kind === "PR" ||
+    lower.includes("dry_run path=") ||
+    lower.includes("examples/prs/")
+  ) {
+    const pathMatch = m.match(/path[=:]?\s*(\S+\.diff)/i);
+    const path = pathMatch?.[1];
+    return {
+      headline: "Fix artifact ready — remediation diff (dry-run)",
+      detail: [
+        path ? `example file: ${path}` : null,
+        "open Inspector → Fix to review",
+      ]
+        .filter(Boolean)
+        .join(" · "),
+      tab: "fix",
+      cta: "Open Fix review →",
+    };
+  }
+
+  return null;
 }
 
 function formatTs(ts: string): string {
@@ -101,6 +175,7 @@ export function SwarmSidebar({
   onSelectAgent,
   selectedAgent = "ALL",
   onClearLogs,
+  onOpenTab,
 }: Props) {
   const streamRef = useRef<HTMLDivElement>(null);
   const [localAgent, setLocalAgent] = useState<string>(selectedAgent);
@@ -272,25 +347,54 @@ export function SwarmSidebar({
                 : "> No logs for selected agent."}
             </div>
           ) : (
-            filteredLogs.map((log, idx) => (
-              <div
-                key={`${log.ts}-${log.kind}-${idx}-${log.message.slice(0, 24)}`}
-                className="border-l border-line py-0.5 pl-2 transition-colors hover:border-ink/40"
-              >
-                <div className="mb-0.5 flex items-center justify-between gap-2 text-[9px] text-faint">
-                  <span className="tabular-nums">{formatTs(log.ts)}</span>
-                  <span className="rounded border border-line bg-elevated px-1 py-px text-[8px] font-bold uppercase tracking-wide text-mute">
-                    {agentBadge(String(log.agent))}
-                  </span>
-                </div>
-                <div className="break-words leading-snug text-ink/90">
-                  {log.kind !== "STATUS" && (
-                    <span className="mr-1 text-faint">{log.kind}</span>
+            filteredLogs.map((log, idx) => {
+              const artifact = parseArtifactRow(log);
+              return (
+                <div
+                  key={`${log.ts}-${log.kind}-${idx}-${log.message.slice(0, 24)}`}
+                  className={`border-l py-0.5 pl-2 transition-colors ${
+                    artifact
+                      ? "border-good/40 hover:border-good"
+                      : "border-line hover:border-ink/40"
+                  }`}
+                >
+                  <div className="mb-0.5 flex items-center justify-between gap-2 text-[9px] text-faint">
+                    <span className="tabular-nums">{formatTs(log.ts)}</span>
+                    <span className="rounded border border-line bg-elevated px-1 py-px text-[8px] font-bold uppercase tracking-wide text-mute">
+                      {agentBadge(String(log.agent))}
+                    </span>
+                  </div>
+                  {artifact ? (
+                    <div className="space-y-1">
+                      <div className="break-words leading-snug text-ink/90">
+                        {artifact.headline}
+                      </div>
+                      {artifact.detail && (
+                        <div className="break-all text-[10px] leading-snug text-faint">
+                          {artifact.detail}
+                        </div>
+                      )}
+                      {artifact.tab && onOpenTab && (
+                        <button
+                          type="button"
+                          onClick={() => onOpenTab(artifact.tab!)}
+                          className="text-left text-[10px] font-medium text-accent hover:underline"
+                        >
+                          {artifact.cta ?? "Open in Inspector →"}
+                        </button>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="break-words leading-snug text-ink/90">
+                      {log.kind !== "STATUS" && (
+                        <span className="mr-1 text-faint">{log.kind}</span>
+                      )}
+                      {displayMessage(log)}
+                    </div>
                   )}
-                  {displayMessage(log)}
                 </div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
       </div>

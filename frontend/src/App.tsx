@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { TopBar } from "./components/layout/TopBar";
-import { SwarmSidebar } from "./components/layout/SwarmSidebar";
+import {
+  SwarmSidebar,
+  type InspectorTab,
+} from "./components/layout/SwarmSidebar";
 import { InspectorDrawer } from "./components/layout/InspectorDrawer";
 import { LineageCanvas } from "./components/graph/LineageCanvas";
 import { loadCommandJob, fetchHealth, createJob } from "./lib/api";
@@ -104,9 +107,7 @@ export default function App() {
   const [source, setSource] = useState<"api" | "demo">("demo");
   const [health, setHealth] = useState<string>("checking…");
   const [selectedUrn, setSelectedUrn] = useState<string | null>(null);
-  const [tab, setTab] = useState<"findings" | "gate" | "fix" | "mbom" | "raw">(
-    "findings",
-  );
+  const [tab, setTab] = useState<InspectorTab>("findings");
   const [scanning, setScanning] = useState(false);
   const [selectedAgent, setSelectedAgent] = useState<AgentName | "ALL">("ALL");
   /** Sentinel-style newest-first live log */
@@ -196,6 +197,33 @@ export default function App() {
         st[agent] = "DONE";
         setStatuses({ ...st });
         addLog(makeLog(agent, "STATUS", `stage=${agent} done`));
+
+        // Friendly CTA after MBOM / Fix stages so operators know where to review
+        if (agent === "MBOMEngine" && j.mbom) {
+          addLog(
+            makeLog(
+              "MBOMEngine",
+              "MBOM",
+              `mbom artifact path=${j.mbom.path ?? "examples/mboms/healthcare-billing-mbom.example.md"} urn=${j.mbom.document_urn ?? ""}`,
+            ),
+          );
+          addLog(
+            makeLog(
+              "MBOMEngine",
+              "STATUS",
+              "MBOM ready — open Inspector → MBOM to review the attestation",
+            ),
+          );
+        }
+        if (agent === "FixArchitect" && j.pr) {
+          addLog(
+            makeLog(
+              "FixArchitect",
+              "PR",
+              `dry_run path=${j.pr.path ?? "examples/prs/fix-negative-billing.example.diff"}`,
+            ),
+          );
+        }
         await sleep(60);
       }
 
@@ -382,6 +410,7 @@ export default function App() {
           selectedAgent={selectedAgent}
           onSelectAgent={setSelectedAgent}
           onClearLogs={onClearLogs}
+          onOpenTab={setTab}
         />
         <main className="relative min-w-0 flex-1">
           <LineageCanvas
