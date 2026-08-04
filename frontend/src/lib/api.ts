@@ -17,6 +17,8 @@ export async function fetchHealth(): Promise<{
   status: string;
   datahub?: string;
   mode?: string;
+  datahub_reachable?: boolean;
+  tier?: string;
 } | null> {
   return tryJson("/v1/health");
 }

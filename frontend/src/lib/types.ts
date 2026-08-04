@@ -48,11 +48,15 @@ export interface JobArtifact {
   mode: string;
   status: string;
   findings: AuditFinding[];
-  blast_radius: { risk_score: number; nodes: BlastNode[] };
+  blast_radius: { risk_score: number; nodes: BlastNode[]; selective?: boolean };
   quarantine: QuarantineReceipt | null;
-  pr: { status: string; path?: string; url?: string } | null;
-  mbom: { path?: string; document_urn?: string } | null;
+  pr: { status: string; path?: string; url?: string; diff_summary?: string } | null;
+  mbom: { path?: string; document_urn?: string; related_assets?: string[] } | null;
   events: JobEvent[];
+  execution_mode?: "demo_closed_loop" | "live_mcp";
+  mutations_applied?: boolean;
+  datahub_reachable?: boolean;
+  gate_policy?: string;
 }
 
 export interface GateDecision {
@@ -63,6 +67,7 @@ export interface GateDecision {
   pr_url?: string | null;
   mbom_urn?: string | null;
   risk_score?: number | null;
+  policy?: string | null;
 }
 
 export const AGENT_ACCENTS: Record<AgentName, string> = {
@@ -72,3 +77,6 @@ export const AGENT_ACCENTS: Record<AgentName, string> = {
   FixArchitect: "#34d399",
   MBOMEngine: "#fbbf24",
 };
+
+export const DEFAULT_ROOT_URN =
+  "urn:li:dataset:(urn:li:dataPlatform:sqlite,healthcare.raw_patients,PROD)";

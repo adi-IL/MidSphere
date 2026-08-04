@@ -11,7 +11,10 @@ class Settings(BaseSettings):
     datahub_tier: str = "oss"  # oss | cloud
     default_job_mode: str = "full"
     auto_trip: bool = True
-    cors_origins: str = "http://localhost:5173,https://midsphere.vercel.app"
+    cors_origins: str = (
+        "http://localhost:5173,https://midsphere.vercel.app,"
+        "https://midsphere-aditya-ai-architects-projects.vercel.app"
+    )
     require_mutations: bool = False
     host: str = "0.0.0.0"
     port: int = 8000
