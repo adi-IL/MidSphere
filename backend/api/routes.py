@@ -5,7 +5,7 @@ from fastapi import APIRouter, HTTPException
 from agents.pipeline import URN_BILLING, lift_quarantine, run_closed_loop
 from app.settings import get_settings
 from gate.service import GATE_POLICY, evaluate_from_job
-from mcp.client import build_client_from_env
+from midsphere_mcp.client import build_client_from_env
 from models.artifacts import CreateJobRequest, GateDecision, JobArtifact, LiftRequest
 
 router = APIRouter()
@@ -27,9 +27,34 @@ def _store(job: JobArtifact) -> JobArtifact:
 
 @router.get("/health")
 def health() -> dict:
+    import os
+
     s = get_settings()
     client = build_client_from_env()
     probe = client.probe()
+    official = {"ok": False, "tools": 0, "error": None}
+    try:
+        from midsphere_mcp.official import probe_official_mcp
+
+        if os.environ.get("HEALTH_PROBE_OFFICIAL_MCP", "false").lower() in (
+            "1",
+            "true",
+            "yes",
+        ):
+            r = probe_official_mcp(
+                s.datahub_gms_url,
+                s.datahub_gms_token,
+                mutations=probe.mutations_enabled,
+            )
+            official = {
+                "ok": r.ok,
+                "tools": len(r.tools),
+                "error": r.error,
+                "cmd": r.server_cmd,
+            }
+    except Exception as exc:  # noqa: BLE001
+        official = {"ok": False, "tools": 0, "error": str(exc)[:200]}
+
     return {
         "status": "ok",
         "datahub": s.datahub_gms_url,
@@ -39,6 +64,14 @@ def health() -> dict:
         "tier": s.datahub_tier,
         "gate_policy": GATE_POLICY,
         "mutations_env": probe.mutations_enabled,
+        "antigravity": os.environ.get("ANTIGRAVITY_ENABLED", "true"),
+        "official_mcp": official,
+        "stack": {
+            "fastapi": True,
+            "antigravity": True,
+            "gemini_models": ["gemini-3.6-flash", "gemini-3.1-pro-preview"],
+            "mcp_server": "mcp-server-datahub via uvx stdio",
+        },
     }
 
 
@@ -68,7 +101,7 @@ def get_job(job_id: str) -> JobArtifact:
 def lift_job(job_id: str, body: LiftRequest | None = None) -> JobArtifact:
     if job_id not in _JOBS:
         raise HTTPException(status_code=404, detail="job not found")
-    urns = body.entity_urns if body else None
+    urns = body.entity_urns if body is not None else None
     job = lift_quarantine(_JOBS[job_id], entity_urns=urns)
     _JOBS[job_id] = job
     return job

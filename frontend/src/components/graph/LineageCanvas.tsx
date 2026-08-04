@@ -18,24 +18,26 @@ interface Props {
   onSelect: (urn: string) => void;
 }
 
-function DatasetNode({ data }: NodeProps<{ label: string; impacted: boolean; hop: number }>) {
+function DatasetNode({
+  data,
+}: NodeProps<{ label: string; impacted: boolean; hop: number }>) {
   return (
     <div
-      className={`min-w-[140px] rounded-lg border px-3 py-2 shadow-panel ${
-        data.impacted
-          ? "border-broken/60 bg-panel ring-2 ring-broken/40"
-          : "border-healthy/40 bg-panel"
+      className={`min-w-[132px] rounded-md border bg-panel px-3 py-2 ${
+        data.impacted ? "border-bad/50" : "border-line2"
       }`}
     >
-      <Handle type="target" position={Position.Left} className="!bg-dim" />
-      <div className="text-[10px] uppercase text-dim">hop {data.hop}</div>
-      <div className="text-sm font-medium">{data.label}</div>
-      <div
-        className={`mt-1 text-[10px] font-semibold ${data.impacted ? "text-broken" : "text-healthy"}`}
-      >
-        {data.impacted ? "QUARANTINE PATH" : "HEALTHY"}
+      <Handle type="target" position={Position.Left} className="!bg-faint !h-1.5 !w-1.5 !border-0" />
+      <div className="text-2xs uppercase tracking-wide text-faint">
+        hop {data.hop}
       </div>
-      <Handle type="source" position={Position.Right} className="!bg-dim" />
+      <div className="text-xs font-medium text-ink">{data.label}</div>
+      <div
+        className={`mt-1 text-2xs font-medium ${data.impacted ? "text-bad" : "text-good"}`}
+      >
+        {data.impacted ? "impacted" : "open"}
+      </div>
+      <Handle type="source" position={Position.Right} className="!bg-faint !h-1.5 !w-1.5 !border-0" />
     </div>
   );
 }
@@ -71,30 +73,28 @@ export function LineageCanvas({ nodes, selectedUrn, onSelect }: Props) {
     for (let i = 0; i < sorted.length; i++) {
       for (let j = 0; j < sorted.length; j++) {
         if (sorted[j].hop === sorted[i].hop + 1) {
-          // connect sequential hops from each parent-ish (healthcare fork)
           const parent = sorted[i];
           const child = sorted[j];
-          // raw→staging (hop0→1): only when parent hop 0
-          // staging→marts (hop1→2): parent hop 1 to both hop2
           if (
             (parent.hop === 0 && child.hop === 1) ||
             (parent.hop === 1 && child.hop === 2)
           ) {
-            const broken = parent.impacted && child.impacted;
+            const hot = child.impacted;
             edgesOut.push({
               id: `${parent.urn}->${child.urn}`,
               source: parent.urn,
               target: child.urn,
-              className: broken ? undefined : "edge-flow",
+              className: hot ? undefined : "edge-flow",
               style: {
-                stroke: broken ? "#f43f5e" : child.impacted ? "#f43f5e" : "#34d399",
-                strokeWidth: 2,
-                opacity: child.impacted || parent.impacted ? 1 : 0.85,
+                stroke: hot ? "#ff4d4f" : "#444",
+                strokeWidth: 1.5,
               },
-              animated: !broken && !child.impacted,
+              animated: !hot,
               markerEnd: {
                 type: MarkerType.ArrowClosed,
-                color: child.impacted ? "#f43f5e" : "#34d399",
+                color: hot ? "#ff4d4f" : "#666",
+                width: 16,
+                height: 16,
               },
             });
           }
@@ -110,11 +110,11 @@ export function LineageCanvas({ nodes, selectedUrn, onSelect }: Props) {
   );
 
   return (
-    <div className="h-full w-full bg-app">
-      <div className="pointer-events-none absolute left-4 top-4 z-10 rounded-md border border-elevated bg-panel/90 px-3 py-2 text-xs text-muted backdrop-blur">
-        Topological Theater ·{" "}
-        <span className="text-healthy">healthy flow</span> ·{" "}
-        <span className="text-broken">selective quarantine</span>
+    <div className="h-full w-full bg-canvas">
+      <div className="pointer-events-none absolute left-4 top-4 z-10 rounded-md border border-line bg-panel/95 px-3 py-2 text-2xs text-mute backdrop-blur">
+        Lineage ·{" "}
+        <span className="text-good">open</span> ·{" "}
+        <span className="text-bad">selective quarantine</span>
       </div>
       <ReactFlow
         nodes={flowNodes}
@@ -126,8 +126,8 @@ export function LineageCanvas({ nodes, selectedUrn, onSelect }: Props) {
         minZoom={0.4}
         maxZoom={1.5}
       >
-        <Background color="#334155" gap={18} size={1} />
-        <Controls className="!bg-panel !border-elevated !shadow-panel" />
+        <Background color="#1a1a1a" gap={20} size={1} />
+        <Controls showInteractive={false} />
       </ReactFlow>
     </div>
   );

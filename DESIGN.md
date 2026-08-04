@@ -9,7 +9,7 @@
 | **DESIGN.md** (this file) | Visual system, layout, components, motion, demo UX |
 | AGENTS.md | Agent contracts, ops, verification |
 
-**Source-of-truth rule:** This file owns all visual decisions. Junior docs conflicted (pure black Vercel zinc vs Deep Slate). **Deep Slate + circuit semantics** wins—enterprise observability, not generic “hacker black.”
+**Source-of-truth rule:** This file owns all visual decisions. Junior docs conflicted (pure black Vercel zinc vs Deep Slate). **Deep Slate + circuit semantics** wins-enterprise observability, not generic “hacker black.”
 
 ---
 
@@ -39,7 +39,7 @@ The visual language borrows:
 | --- | --- |
 | **Authority** | Restrained surfaces; semantic color only for state |
 | **Precision** | Monospace for URNs, SQL, tool args; no decorative noise |
-| **Trust** | Show agent work (tools, latency, findings)—never hide mutations |
+| **Trust** | Show agent work (tools, latency, findings)-never hide mutations |
 | **Reversibility** | Lift Quarantine is first-class, same prominence as Trip Breaker |
 | **Progressive disclosure** | Risk + graph first; SQL/JSON only in inspector |
 | **Judge offline-ability** | Screenshots and static graph snapshots in `examples/ui/` |
@@ -65,7 +65,7 @@ The visual language borrows:
 | `--border-subtle` | `#334155` | Default borders |
 | `--border-strong` | `#475569` | Active panels |
 
-Optional glass: `backdrop-blur-md` + `bg-slate-900/70` on floating toasts and modals—not on every card (avoid generic “glassmorphism spam”).
+Optional glass: `backdrop-blur-md` + `bg-slate-900/70` on floating toasts and modals-not on every card (avoid generic “glassmorphism spam”).
 
 ### 2.2 Typography colors
 
@@ -82,11 +82,11 @@ Optional glass: `backdrop-blur-md` + `bg-slate-900/70` on floating toasts and mo
 | Healthy / flowing | `--circuit-healthy` | `#34d399` (Emerald 400) | Certified, open gate, live stream |
 | Analyzing / warn | `--circuit-warn` | `#fbbf24` (Amber 400) | Sentinel finding, not yet quarantined |
 | Quarantined / broken | `--circuit-broken` | `#f43f5e` (Rose 500) | Tag `QUARANTINED` / `gate_status=BLOCKED` |
-| Neutral / halted edge | `--circuit-idle` | `#64748b` | Downstream of break—animation stopped |
+| Neutral / halted edge | `--circuit-idle` | `#64748b` | Downstream of break-animation stopped |
 | Brand / DataHub | `--brand-datahub` | `#1890ff` | Links to DataHub entities, primary CTAs |
 | Info / agent active | `--agent-pulse` | `#38bdf8` (Sky 400) | Active agent thinking pulse |
 
-**Do not use** pure `#ef4444` red-on-black as the only quarantine cue—Rose 500 on Slate 950 passes contrast more cleanly and matches the “circuit” metaphor.
+**Do not use** pure `#ef4444` red-on-black as the only quarantine cue-Rose 500 on Slate 950 passes contrast more cleanly and matches the “circuit” metaphor.
 
 ### 2.4 Agent identity colors (telemetry strip)
 
@@ -106,8 +106,8 @@ Stable per-agent accents so the swarm HUD is scannable:
 
 | Role | Family | Weight | Notes |
 | --- | --- | --- | --- |
-| UI / prose | **Inter** (or Geist if already in template) | 400–600 | Nav, MBOM body, buttons |
-| Code / data | **JetBrains Mono** (or Fira Code) | 400–500 | URNs, SQL, tool logs, diffs; ligatures **on** for diffs only |
+| UI / prose | **Inter** (or Geist if already in template) | 400-600 | Nav, MBOM body, buttons |
+| Code / data | **JetBrains Mono** (or Fira Code) | 400-500 | URNs, SQL, tool logs, diffs; ligatures **on** for diffs only |
 
 Scale (Tailwind-friendly):
 
@@ -117,7 +117,7 @@ Scale (Tailwind-friendly):
 | `text-sm` | 14px | Secondary UI, table cells |
 | `text-base` | 16px | Body |
 | `text-lg` | 18px | Panel titles |
-| `text-xl` / `text-2xl` | 20–24px | Risk score hero number |
+| `text-xl` / `text-2xl` | 20-24px | Risk score hero number |
 
 URNs always truncate with middle ellipsis in graph labels; full URN in inspector + copy button.
 
@@ -132,7 +132,7 @@ Abandon top-nav SaaS chrome. Edge-to-edge workspace:
 │ TOP BAR: MidSphere · env badge · DataHub connection · Scan CTA · user        │
 ├────────────┬─────────────────────────────────────────────┬───────────────────┤
 │ LEFT       │ CENTER                                      │ RIGHT             │
-│ 280–320px  │ flex-1                                      │ 360–420px         │
+│ 280-320px  │ flex-1                                      │ 360-420px         │
 │            │                                             │                   │
 │ Swarm HUD  │ Lineage / Blast-Radius Canvas               │ Inspector Drawer  │
 │ Agents     │                                             │ Tabs:             │
@@ -154,7 +154,7 @@ Abandon top-nav SaaS chrome. Edge-to-edge workspace:
 - Primary CTA: **Run Scan** (opens target URN picker)  
 - Secondary: **Open in DataHub** for selected node  
 
-### 4.2 Left — Swarm Controller
+### 4.2 Left - Swarm Controller
 
 **Live Agent Telemetry HUD**
 
@@ -174,9 +174,9 @@ States: `IDLE` | `RUNNING` | `WAITING_TOOL` | `DONE` | `ERROR`
 
 **Collapsed terminal** at bottom of left pane: last 50 structured log lines (expand to modal for full stream).
 
-### 4.3 Center — Topological Theater
+### 4.3 Center - Topological Theater
 
-Infinite pan/zoom canvas (start with **2D React Flow**—ship reliability over 3D novelty).
+Infinite pan/zoom canvas (start with **2D React Flow**-ship reliability over 3D novelty).
 
 **Node types:**
 
@@ -195,21 +195,21 @@ Infinite pan/zoom canvas (start with **2D React Flow**—ship reliability over 3
 | Analyzing | Amber pulse on path under audit |
 | Quarantined source | Rose node halo; **downstream edges freeze** to `--circuit-idle` (no motion) |
 
-**Node halo** intensity maps to risk score (0–100): low = thin emerald, high = thick rose.
+**Node halo** intensity maps to risk score (0-100): low = thin emerald, high = thick rose.
 
 **Focus mode:** click node → dim unrelated graph to 30% opacity; highlight cascade path (upstream root cause + downstream impact).
 
-**Empty / loading:** skeleton graph with “Waiting for CascadeAnalyzer…”—never a blank void.
+**Empty / loading:** skeleton graph with “Waiting for CascadeAnalyzer…”-never a blank void.
 
-### 4.4 Right — Inspector (Action Console)
+### 4.4 Right - Inspector (Action Console)
 
-Tabs (keyboard 1–5):
+Tabs (keyboard 1-5):
 
-1. **Findings** — severity, type, evidence, column paths  
-2. **Gate** — current tags, structured props, lift criteria, Consumer Gate preview  
-3. **Fix / PR** — split diff + “Open PR” / “View on GitHub”  
-4. **MBOM** — rendered markdown (Notion-like), “Published to DataHub” badge + doc URN  
-5. **Raw** — collapsed JSON artifacts (AuditReport, BlastRadiusMatrix)
+1. **Findings** - severity, type, evidence, column paths  
+2. **Gate** - current tags, structured props, lift criteria, Consumer Gate preview  
+3. **Fix / PR** - split diff + “Open PR” / “View on GitHub”  
+4. **MBOM** - rendered markdown (Notion-like), “Published to DataHub” badge + doc URN  
+5. **Raw** - collapsed JSON artifacts (AuditReport, BlastRadiusMatrix)
 
 Sticky footer actions:
 
@@ -237,7 +237,7 @@ Hero metric in inspector header or floating on canvas:
 └──────────────────────────┘
 ```
 
-Tooltip shows formula factors (link ARCHITECTURE §4.2)—builds judge trust.
+Tooltip shows formula factors (link ARCHITECTURE §4.2)-builds judge trust.
 
 ### 5.2 FixArchitect Diff Terminal
 
@@ -265,7 +265,7 @@ Structured lines (not free-form LLM dumps):
 ```
 
 UI maps `TOOL` / `FIND` / `SCORE` / `WRITE` / `ERROR` to icons.  
-**Honest tool names only** (`get_lineage`, `add_tags`, `save_document`)—never `datahub_*` prefixes.
+**Honest tool names only** (`get_lineage`, `add_tags`, `save_document`)-never `datahub_*` prefixes.
 
 ### 5.4 MBOM Viewer
 
@@ -283,7 +283,7 @@ Small “what would an agent see?” card:
 | OPEN | Green: full schema snippet + “context allowed” |
 | BLOCKED | Rose: redacted schema, reason, PR link, MBOM link |
 
-This is the **honest demable circuit break**—show it in the video.
+This is the **honest demable circuit break**-show it in the video.
 
 ### 5.6 Scan target picker
 
@@ -429,9 +429,9 @@ interface JobEvent {
 | State | UX |
 | --- | --- |
 | No DataHub | Full-page connect instructions; disable Scan |
-| Mutations disabled | Banner: “Write-back off — audit only”; still show findings |
+| Mutations disabled | Banner: “Write-back off - audit only”; still show findings |
 | Agent error | Agent card ERROR + retry job |
-| Graph empty after scan | “No lineage edges—check ingest/add_lineage.py” |
+| Graph empty after scan | “No lineage edges-check ingest/add_lineage.py” |
 | Judge offline | Demo mode loads `examples/jobs/healthcare-sample.json` |
 
 ---
@@ -442,14 +442,14 @@ Storyboard for judges and video:
 
 | Time | Screen | Action |
 | --- | --- | --- |
-| 0:00–0:20 | Title + thesis | “Context entropy breaks agents. MidSphere trips the circuit inside DataHub.” |
-| 0:20–0:45 | DataHub UI | Healthcare lineage fork visible |
-| 0:45–1:30 | Command Center | Run Scan → swarm HUD tools stream with **real MCP names** |
-| 1:30–1:55 | Graph | Selective rose on `mart_billing`; demographics stays emerald |
-| 1:55–2:20 | Gate preview | BLOCKED context response |
-| 2:20–2:40 | Diff + PR | FixArchitect removes/filters bad rows |
-| 2:40–2:55 | MBOM in DataHub | Document linked via related assets |
-| 2:55–3:00 | Close | Repo + live demo URL |
+| 0:00-0:20 | Title + thesis | “Context entropy breaks agents. MidSphere trips the circuit inside DataHub.” |
+| 0:20-0:45 | DataHub UI | Healthcare lineage fork visible |
+| 0:45-1:30 | Command Center | Run Scan → swarm HUD tools stream with **real MCP names** |
+| 1:30-1:55 | Graph | Selective rose on `mart_billing`; demographics stays emerald |
+| 1:55-2:20 | Gate preview | BLOCKED context response |
+| 2:20-2:40 | Diff + PR | FixArchitect removes/filters bad rows |
+| 2:40-2:55 | MBOM in DataHub | Document linked via related assets |
+| 2:55-3:00 | Close | Repo + live demo URL |
 
 Record at 1080p; zoom inspector for URN readability.
 
@@ -467,7 +467,7 @@ Record at 1080p; zoom inspector for URN readability.
 | `examples/jobs/healthcare-sample.json` | Full job artifact for Demo Mode |
 | `examples/telemetry/swarm-log.txt` | Sample tool stream |
 
-README should link these prominently—“Judges: review without running.”
+README should link these prominently-“Judges: review without running.”
 
 ---
 
@@ -495,4 +495,4 @@ README should link these prominently—“Judges: review without running.”
 
 ---
 
-*MidSphere — Design. Calm authority. Semantic circuits. Judge-scorable screens.*
+*MidSphere - Design. Calm authority. Semantic circuits. Judge-scorable screens.*

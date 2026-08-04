@@ -1,5 +1,7 @@
 # MidSphere
 
+Autonomous context circuit-breaker for [DataHub](https://datahub.com).
+
 ```
    __  ___  _     _______       __
   /  |/  / (_)___/ / ___/____  / /_  ___  _______
@@ -9,135 +11,107 @@
                       /_/
 ```
 
-### Autonomous Context Command & Circuit-Breaker Engine  
-*Powered by [DataHub](https://datahub.com) · MCP · Antigravity · Gemini*
+MidSphere watches a DataHub context graph for quality and governance failures, scores selective blast radius on lineage, writes advisory quarantine metadata, opens fix artifacts, and publishes MBOM-style attestations so the next human or agent inherits safer context.
 
-> Organizations ship AI agents faster than they ship trustworthy context.  
-> When schema drift, bad quality, PII leaks, or orphan ownership hit the catalog, the failure does not stop at Slack.  
-> **Context Entropy** sets in — and every agent still reading DataHub inherits the damage.
+It does not claim that DataHub MCP automatically blocks every third-party reader. Quarantine is advisory graph state. MidSphere Consumer Gate enforces `BLOCKED` for MidSphere-aware clients.
 
-Traditional catalogs often act as **passive death certificates**: they log what broke, fire an alert that dies in scrollback, and leave Cursor, Claude, Analytics Agent, and Text-to-SQL bots hallucinating on corrupted metadata.
+Built for [Build with DataHub: The Agent Hackathon](https://datahub.devpost.com/).
 
-**MidSphere does not stop at the death certificate.**  
-It **trips a circuit breaker inside DataHub’s context graph** — advisory quarantine, selective blast-radius halt, metadata-aware fix PRs, and a durable **Model Bill of Materials (MBOM)** so the next human *and* the next agent inherit permanent knowledge.
+## Live
 
----
-
-## The closed loop
-
-| Stage | Agent | What happens |
-| --- | --- | --- |
-| **1. Audit** | `ContextSentinel` | Column lineage, quality, PII, ownership gates |
-| **2. Topology** | `CascadeAnalyzer` | Blast-radius matrix + risk score 0–100 |
-| **3. Break** | `CircuitBreaker` | Tags + structured properties (`gate_status=BLOCKED`) |
-| **4. Fix** | `FixArchitect` | Golden SQL from DataHub → dbt/SQL PR |
-| **5. Inherit** | `MBOMEngine` | Versioned attestation via `save_document` |
-
-```
-Trigger → Sentinel → Cascade → Breaker → Fix → MBOM
-              │           │         │
-              └──── DataHub MCP (read + mutation write-back) ────┘
-```
-
-**Honest circuit break (production-correct):**  
-Quarantine is **advisory graph state** in DataHub (tags, structured properties, documents). MidSphere’s **Consumer Gate** enforces `BLOCKED` for MidSphere-aware clients. We do **not** claim that every third-party MCP consumer is auto-denied by the platform alone.
-
-Primary demo: official **healthcare** forking pipeline — **selective halt** (billing vs demographics), not a naive “kill everything” switch.
-
----
-
-## Why judges care
-
-Built for **Build with DataHub: The Agent Hackathon**. Criteria are **equally weighted** — no score theater.
-
-| Criterion | MidSphere angle |
+| Surface | URL |
 | --- | --- |
-| **Use of DataHub** | Bidirectional: lineage, schema, queries **in**; tags, structured properties, MBOM documents **out** |
-| **Technical Execution** | E2E scan → quarantine → gate → PR → MBOM; claims match code |
-| **Originality** | Closed-loop **mutation of the context graph** + selective halt — not a chat wrapper over search |
-| **Real-World Usefulness** | Pipeline quality cascades, advisory quarantine, mergeable fixes, durable attestation |
-| **Submission Quality** | Demo video, clear README, live UI, offline `examples/` |
-| **Bonus OSS** | Skills: `datahub-circuit-breaker`, `datahub-quality-circuit` |
+| Command Center | https://midsphere.vercel.app |
+| API (Cloud Run) | https://midsphere-api-1053689941073.us-central1.run.app |
+| Source | https://github.com/adi-IL/MidSphere-datahb |
 
----
-
-## Stack & isolation
-
-| Surface | Stack | Deploy |
-| --- | --- | --- |
-| `frontend/` | React 18 · Vite · TypeScript · Deep Slate Command Center | **Vercel** (`midsphere`) |
-| `backend/` | FastAPI · Antigravity · DataHub MCP · Gemini | **GCP Cloud Run** |
-| Catalog | DataHub GMS + [MCP Server](https://github.com/acryldata/mcp-server-datahub) | Local quickstart / Cloud |
-
-Never mix package trees. Never bake frontend into Cloud Run.
-
----
-
-## Repository map
+## How it works
 
 ```
-.
-├── ARCHITECTURE.md     # System design & DataHub contracts
-├── DESIGN.md           # Enterprise Mission Control UI
-├── AGENTS.md           # Agent / MCP / ops bible
-├── frontend/           # Command Center → Vercel
-├── backend/            # Swarm engine → Cloud Run
-├── skills/             # OSS skill drafts
-├── examples/           # Judge-offline MBOMs, diffs, telemetry
-├── scripts/            # Bootstrap + healthcare load helpers
-├── LICENSE             # Apache-2.0
-└── README.md           # You are here
+Scan root URN
+  -> ContextSentinel   findings (quality, PII, ownership signals)
+  -> CascadeAnalyzer   blast radius + risk 0-100 (selective impact)
+  -> CircuitBreaker    tags + structured properties (advisory)
+  -> FixArchitect      SQL/dbt fix artifact (PR or dry-run path)
+  -> MBOMEngine        document reference via save_document contract
 ```
 
-Local-only (gitignored): `resource/` recon clones, Devpost rules dump, `.env`, deploy link state.
+Primary demo graph: healthcare forking pipeline (`raw -> staging -> mart_billing | mart_demographics`). Billing issues quarantine billing; demographics can stay open.
 
----
+## Stack (shipping)
+
+| Layer | Technology |
+| --- | --- |
+| Frontend | React 18, Vite, TypeScript, Tailwind, React Flow, Geist |
+| Backend | FastAPI, Pydantic, httpx, uvicorn |
+| Agents | Google Antigravity SDK + Gemini (`gemini-3.6-flash` / `gemini-3.1-pro-preview`) on the job path when Vertex ADC allows; deterministic closed loop always runs |
+| Catalog | DataHub GMS + official [mcp-server-datahub](https://github.com/acryldata/mcp-server-datahub) via `uvx` stdio (`mcp` Python client) |
+| Deploy | Frontend: Vercel project `midsphere`. Backend: GCP Cloud Run `midsphere-api` |
+
+Install paths match this repo: `pip install -r backend/requirements.txt` and `npm install` under `frontend/`.
+
+## MCP tools (real names only)
+
+Read: `search`, `get_entities`, `list_schema_fields`, `get_lineage`, `get_lineage_paths_between`, `get_dataset_queries`
+
+Write (requires `TOOLS_IS_MUTATION_ENABLED=true` on the MCP server process): `add_tags`, `remove_tags`, `add_structured_properties`, `save_document`
+
+No `datahub_*` prefixes. No MCP `create_incident` (Cloud GraphQL only when tier allows).
+
+When GMS or official MCP is offline, jobs still complete in `execution_mode=demo_closed_loop` and set `mutations_applied=false`. Live writes are never claimed without a successful path.
 
 ## Quick start
 
 ```bash
-# Identity (once per clone)
-git config user.name "adi-IL"
-git config user.email "adi-IL@users.noreply.github.com"
-
+git clone https://github.com/adi-IL/MidSphere-datahb.git
+cd MidSphere-datahb
 cp .env.example .env
-# set DATAHUB_GMS_URL, DATAHUB_GMS_TOKEN
-# MCP process needs: TOOLS_IS_MUTATION_ENABLED=true
-
-# Sample data (requires DataHub quickstart + local resource/datasets)
-./scripts/load_healthcare.sh
 
 # Backend
-cd backend && uv sync && uv run uvicorn app.main:app --reload --port 8000
+cd backend
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+export GOOGLE_CLOUD_PROJECT=project-dace7531-ac79-4f81-bd2
+export ANTIGRAVITY_MODELS=gemini-3.6-flash
+export USE_OFFICIAL_MCP=true
+# optional live catalog:
+# export DATAHUB_GMS_URL=... DATAHUB_GMS_TOKEN=... TOOLS_IS_MUTATION_ENABLED=true
+PYTHONPATH=. uvicorn app.main:app --reload --port 8000
 
-# Frontend
-cd frontend && npm install && npm run dev
+# Frontend (other terminal)
+cd frontend
+npm install
+npm run dev
 ```
 
----
+Sample healthcare load (local DataHub quickstart + clone of static-assets datasets):
 
-## MCP contracts (real names only)
+```bash
+./scripts/load_healthcare.sh
+```
 
-**Read:** `search` · `get_entities` · `list_schema_fields` · `get_lineage` · `get_lineage_paths_between` · `get_dataset_queries`  
+## API
 
-**Write** (`TOOLS_IS_MUTATION_ENABLED=true`): `add_tags` · `remove_tags` · `add_structured_properties` · `save_document`  
+| Method | Path | Purpose |
+| --- | --- | --- |
+| GET | `/v1/health` | Service + stack metadata |
+| POST | `/v1/jobs` | Run closed loop `{ root_urn, mode, auto_trip }` |
+| GET | `/v1/jobs/latest` | Latest job artifact |
+| GET | `/v1/jobs/{id}` | Job by id |
+| POST | `/v1/jobs/{id}/lift` | Lift quarantine |
+| GET | `/v1/gate/{urn}` | Consumer Gate decision |
 
-No inventing `datahub_*` prefixes. No MCP `create_incident` (Cloud GraphQL optional only).
+## Repository layout
 
----
-
-## Docs for builders
-
-1. [ARCHITECTURE.md](./ARCHITECTURE.md) — thesis, swarm, demo path  
-2. [DESIGN.md](./DESIGN.md) — three-pane Mission Control  
-3. [AGENTS.md](./AGENTS.md) — contracts you must not violate  
-
----
+```
+frontend/     Command Center (Vercel)
+backend/      Swarm API (Cloud Run)
+skills/       OSS skill drafts (circuit-breaker, quality-circuit)
+examples/     Offline MBOMs, diffs, telemetry
+scripts/      Bootstrap helpers
+ARCHITECTURE.md  DESIGN.md  AGENTS.md
+```
 
 ## License
 
-[Apache License 2.0](./LICENSE)
-
----
-
-*MidSphere — when context goes bad, trip the breaker. Don’t print another death certificate.*
+Apache License 2.0. See [LICENSE](./LICENSE).

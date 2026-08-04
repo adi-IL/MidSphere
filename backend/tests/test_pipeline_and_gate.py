@@ -21,7 +21,7 @@ from agents.pipeline import (  # noqa: E402
     run_closed_loop,
 )
 from gate.service import GATE_POLICY, evaluate_from_job  # noqa: E402
-from mcp.client import REAL_MCP_TOOLS, McpClient  # noqa: E402
+from midsphere_mcp.client import REAL_MCP_TOOLS, McpClient  # noqa: E402
 
 
 ROOT = "urn:li:dataset:(urn:li:dataPlatform:sqlite,healthcare.raw_patients,PROD)"

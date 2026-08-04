@@ -18,7 +18,7 @@ from models.artifacts import (
     JobEvent,
     QuarantineReceipt,
 )
-from mcp.client import REAL_MCP_TOOLS, McpClient, build_client_from_env
+from midsphere_mcp.client import REAL_MCP_TOOLS, McpClient, build_client_from_env
 
 # Healthcare selective-halt URNs (demo graph)
 URN_RAW = "urn:li:dataset:(urn:li:dataPlatform:sqlite,healthcare.raw_patients,PROD)"
@@ -307,7 +307,85 @@ def run_closed_loop(
         mutations_applied=mutations_applied,
         datahub_reachable=probe.reachable,
     )
+
+    # Official mcp-server-datahub path (stdio via uvx) when enabled
+    import os
+
+    if os.environ.get("USE_OFFICIAL_MCP", "true").lower() in ("1", "true", "yes"):
+        try:
+            from midsphere_mcp.official import probe_official_mcp, call_official_mcp
+
+            s_url = os.environ.get("DATAHUB_GMS_URL", "http://localhost:8080")
+            s_tok = os.environ.get("DATAHUB_GMS_TOKEN", "")
+            mut = os.environ.get("TOOLS_IS_MUTATION_ENABLED", "false").lower() in (
+                "1",
+                "true",
+                "yes",
+            )
+            # List tools only is enough to prove official server wiring
+            official = probe_official_mcp(s_url, s_tok, mutations=mut)
+            if official.ok:
+                emit(
+                    "ContextSentinel",
+                    "STATUS",
+                    f"official mcp-server-datahub tools={len(official.tools)} cmd={official.server_cmd}",
+                )
+                for tname in (
+                    "get_lineage",
+                    "list_schema_fields",
+                    "search",
+                    "add_tags",
+                    "save_document",
+                ):
+                    if tname in official.tools:
+                        emit("ContextSentinel", "STATUS", f"official_mcp_has_tool {tname}")
+                # Optional live read if GMS is actually healthy (search)
+                if probe.reachable and "search" in official.tools:
+                    live = call_official_mcp(
+                        s_url,
+                        s_tok,
+                        mutations=False,
+                        tool_calls=[("search", {"query": "healthcare"})],
+                        timeout=60.0,
+                    )
+                    for c in live.calls:
+                        emit(
+                            "ContextSentinel",
+                            "TOOL",
+                            f"{c.get('tool')} official_mcp {'ok' if c.get('ok') else 'fail'}",
+                        )
+                        if c.get("tool") == "search" and c.get("ok"):
+                            job.datahub_reachable = True
+            else:
+                emit(
+                    "ContextSentinel",
+                    "STATUS",
+                    f"official mcp unavailable: {(official.error or 'unknown')[:300]}",
+                )
+        except Exception as exc:  # noqa: BLE001
+            emit(
+                "ContextSentinel",
+                "ERROR",
+                f"official mcp path error: {type(exc).__name__}: {str(exc)[:240]}",
+            )
+
     assert_telemetry_mcp_clean(job.events)
+
+    # Antigravity + Gemini enrichment (real SDK call; honest on failure)
+    try:
+        from agents.antigravity_runner import enrich_job_with_antigravity
+
+        job = enrich_job_with_antigravity(job)
+    except Exception as exc:  # noqa: BLE001
+        job.events.append(
+            JobEvent(
+                ts=_ts(),
+                agent="ContextSentinel",
+                kind="ERROR",
+                message=f"antigravity import/run error: {type(exc).__name__}: {str(exc)[:200]}",
+            )
+        )
+
     return job
 
 

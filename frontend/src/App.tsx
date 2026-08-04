@@ -85,14 +85,14 @@ export default function App() {
 
   if (!job || !statuses) {
     return (
-      <div className="flex h-full items-center justify-center bg-app text-muted">
-        Loading MidSphere Command Center…
+      <div className="flex h-full items-center justify-center bg-canvas text-mute">
+        Loading MidSphere…
       </div>
     );
   }
 
   return (
-    <div className="flex h-full flex-col bg-app text-primary">
+    <div className="flex h-full flex-col bg-canvas text-ink">
       <TopBar
         connection={scanning ? "Scanning…" : health}
         source={source}

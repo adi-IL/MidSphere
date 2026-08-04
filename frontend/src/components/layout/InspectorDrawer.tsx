@@ -17,7 +17,7 @@ interface Props {
 const TABS: { id: Tab; label: string }[] = [
   { id: "findings", label: "Findings" },
   { id: "gate", label: "Gate" },
-  { id: "fix", label: "Fix / PR" },
+  { id: "fix", label: "Fix" },
   { id: "mbom", label: "MBOM" },
   { id: "raw", label: "Raw" },
 ];
@@ -27,15 +27,15 @@ export function InspectorDrawer({ job, selectedUrn, tab, onTab }: Props) {
   const gate = job.quarantine?.gateStatus ?? "OPEN";
 
   return (
-    <aside className="flex w-[400px] shrink-0 flex-col border-l border-elevated bg-panel">
-      <div className="border-b border-elevated p-3">
-        <div className="text-[11px] uppercase tracking-wider text-dim">
+    <aside className="flex w-[380px] shrink-0 flex-col border-l border-line bg-panel">
+      <div className="border-b border-line p-3">
+        <div className="text-2xs uppercase tracking-wide text-faint">
           Inspector
         </div>
-        <div className="mt-1 text-sm font-semibold">
+        <div className="mt-1 text-sm font-medium tracking-tight text-ink">
           {node?.name ?? "Select a node"}
         </div>
-        <div className="mt-1 truncate font-mono text-[10px] text-muted">
+        <div className="mt-1 truncate font-mono text-2xs text-mute">
           {selectedUrn}
         </div>
         <div className="mt-3">
@@ -47,16 +47,16 @@ export function InspectorDrawer({ job, selectedUrn, tab, onTab }: Props) {
         </div>
       </div>
 
-      <div className="flex gap-1 overflow-x-auto border-b border-elevated px-2 py-2">
+      <div className="flex gap-0.5 overflow-x-auto border-b border-line px-2 py-1.5">
         {TABS.map((t) => (
           <button
             key={t.id}
             type="button"
             onClick={() => onTab(t.id)}
-            className={`rounded px-2 py-1 text-xs ${
+            className={`rounded px-2 py-1 text-2xs ${
               tab === t.id
-                ? "bg-elevated text-primary"
-                : "text-muted hover:bg-app"
+                ? "bg-elevated text-ink"
+                : "text-mute hover:text-ink"
             }`}
           >
             {t.label}
@@ -70,18 +70,14 @@ export function InspectorDrawer({ job, selectedUrn, tab, onTab }: Props) {
             {job.findings.map((f) => (
               <div
                 key={f.id}
-                className="rounded-lg border border-elevated bg-app/40 p-3"
+                className="rounded-md border border-line bg-canvas p-3"
               >
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-sm font-medium">{f.type}</span>
-                  <span className="rounded bg-broken/15 px-1.5 py-0.5 text-[10px] text-broken">
-                    {f.severity}
-                  </span>
+                  <span className="text-xs font-medium text-ink">{f.type}</span>
+                  <span className="text-2xs text-mute">{f.severity}</span>
                 </div>
-                <p className="mt-1 text-xs text-muted">{f.rationale}</p>
-                <p className="mt-2 font-mono text-[10px] text-dim">
-                  {f.evidence}
-                </p>
+                <p className="mt-1 text-xs text-mute">{f.rationale}</p>
+                <p className="mt-2 font-mono text-2xs text-faint">{f.evidence}</p>
               </div>
             ))}
           </div>
@@ -96,26 +92,22 @@ export function InspectorDrawer({ job, selectedUrn, tab, onTab }: Props) {
               tags={job.quarantine?.tagsApplied ?? []}
               properties={job.quarantine?.properties ?? {}}
             />
-            <p className="text-xs leading-relaxed text-muted">
-              Advisory quarantine in DataHub + MidSphere Consumer Gate. MCP does
-              not auto-deny every third-party reader — we enforce at the gate.
-            </p>
           </div>
         )}
 
         {tab === "fix" && (
-          <pre className="overflow-x-auto rounded-lg border border-elevated bg-app p-3 font-mono text-[11px] leading-relaxed text-healthy">
+          <pre className="overflow-x-auto rounded-md border border-line bg-canvas p-3 font-mono text-2xs leading-relaxed text-mute">
             {DEMO_DIFF}
           </pre>
         )}
 
         {tab === "mbom" && (
-          <article className="prose prose-invert prose-sm max-w-none text-sm">
+          <article className="prose-ms">
             <ReactMarkdown remarkPlugins={[remarkGfm]}>
               {DEMO_MBOM}
             </ReactMarkdown>
             {job.mbom?.document_urn && (
-              <p className="mt-3 font-mono text-[10px] text-dim">
+              <p className="mt-3 font-mono text-2xs text-faint">
                 {job.mbom.document_urn}
               </p>
             )}
@@ -123,24 +115,24 @@ export function InspectorDrawer({ job, selectedUrn, tab, onTab }: Props) {
         )}
 
         {tab === "raw" && (
-          <pre className="overflow-x-auto rounded-lg border border-elevated bg-app p-3 font-mono text-[10px] text-muted">
+          <pre className="overflow-x-auto rounded-md border border-line bg-canvas p-3 font-mono text-2xs text-mute">
             {JSON.stringify(job, null, 2)}
           </pre>
         )}
       </div>
 
-      <div className="flex gap-2 border-t border-elevated p-3">
+      <div className="flex gap-2 border-t border-line p-3">
         <button
           type="button"
-          className="flex-1 rounded-md bg-broken/90 py-2 text-xs font-semibold text-white"
+          className="flex-1 rounded-md border border-line2 bg-elevated py-2 text-2xs font-medium text-ink"
         >
-          Trip Circuit
+          Trip circuit
         </button>
         <button
           type="button"
-          className="flex-1 rounded-md border border-elevated py-2 text-xs font-semibold text-muted"
+          className="flex-1 rounded-md border border-line py-2 text-2xs font-medium text-mute"
         >
-          Lift Quarantine
+          Lift quarantine
         </button>
       </div>
     </aside>

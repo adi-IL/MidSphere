@@ -70,12 +70,13 @@ export interface GateDecision {
   policy?: string | null;
 }
 
+// Monochrome-first agent accents (subtle, not rainbow chrome)
 export const AGENT_ACCENTS: Record<AgentName, string> = {
-  ContextSentinel: "#38bdf8",
-  CascadeAnalyzer: "#a78bfa",
-  CircuitBreaker: "#f43f5e",
-  FixArchitect: "#34d399",
-  MBOMEngine: "#fbbf24",
+  ContextSentinel: "#0070f3",
+  CascadeAnalyzer: "#888888",
+  CircuitBreaker: "#ff4d4f",
+  FixArchitect: "#00c853",
+  MBOMEngine: "#f5a623",
 };
 
 export const DEFAULT_ROOT_URN =

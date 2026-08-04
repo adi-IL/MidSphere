@@ -1,7 +1,7 @@
 # MidSphere Architecture
 
 **Autonomous Context Command & Circuit-Breaker Engine for the DataHub Context Platform**  
-*Build with DataHub: The Agent Hackathon — universal redesign*
+*Build with DataHub: The Agent Hackathon - universal redesign*
 
 | Document | Role |
 | --- | --- |
@@ -9,7 +9,7 @@
 | **DESIGN.md** | UI/UX, visual system, Command Center, demo artifacts |
 | **AGENTS.md** | Agent contracts, MCP tool map, ops, verification, OSS skills |
 
-**Design principle:** Every claim in these docs must map to a demable, judge-scorable behavior. Prefer production-correct contracts over aspirational language. Keep the punch — drop the fiction.
+**Design principle:** Every claim in these docs must map to a demable, judge-scorable behavior. Prefer production-correct contracts over aspirational language. Keep the punch - drop the fiction.
 
 ---
 
@@ -17,7 +17,7 @@
 
 ### 1.1 Context Entropy (the enterprise context crisis)
 
-Organizations ship hundreds of AI agents, copilots, and automated pipelines. Agents only behave as well as the **context** they receive—schemas, lineage, ownership, quality signals, query history, glossary definitions.
+Organizations ship hundreds of AI agents, copilots, and automated pipelines. Agents only behave as well as the **context** they receive-schemas, lineage, ownership, quality signals, query history, glossary definitions.
 
 When that context is wrong, agents do not fail loudly. They:
 
@@ -26,9 +26,9 @@ When that context is wrong, agents do not fail loudly. They:
 - Ignore PII and governance tags that never made it into the prompt
 - Trust orphan datasets with no owner and no certification
 
-This is **Context Entropy**: corruption in the metadata graph propagates silently into every consumer of that graph—humans *and* agents.
+This is **Context Entropy**: corruption in the metadata graph propagates silently into every consumer of that graph-humans *and* agents.
 
-Existing governance tools too often act as **passive death certificates**—logging failures into a catalog or firing a Slack alert that dies in scrollback—while Cursor, Claude Code, and DataHub Analytics Agent **keep pulling dirty context** and making decisions on it.
+Existing governance tools too often act as **passive death certificates**-logging failures into a catalog or firing a Slack alert that dies in scrollback-while Cursor, Claude Code, and DataHub Analytics Agent **keep pulling dirty context** and making decisions on it.
 
 **MidSphere’s breakthrough:** stop printing death certificates. **Trip the circuit breaker inside the context graph**, open a fix path, and leave a permanent MBOM so the next agent inherits safer knowledge.
 
@@ -36,22 +36,22 @@ Existing governance tools too often act as **passive death certificates**—logg
 
 DataHub began at **LinkedIn** as a metadata platform for discovery and governance at scale, was open-sourced under **Apache 2.0** in 2020, and is now an independent community project under `datahub-project` / `datahub.com`. It has evolved from a catalog into an explicit **context platform for humans and AI agents**:
 
-- **Context graph** — datasets, columns, pipelines, dashboards, ML models, documents, ownership, glossary, tags, structured properties, lineage (table + column)
-- **Ingestion** — 100+ connectors into warehouses, lakes, BI, orchestration, ML platforms
-- **Agent interfaces** — [MCP Server](https://docs.datahub.com/docs/features/feature-guides/mcp), [DataHub Skills](https://docs.datahub.com/docs/dev-guides/agent-context/skills), [Agent Context Kit](https://docs.datahub.com/docs/dev-guides/agent-context/agent-context), [Analytics Agent](https://github.com/datahub-project/analytics-agent)
-- **Write paths** — GraphQL / SDK / CLI enrichment; MCP **mutation tools** (v0.5.0+, gated by `TOOLS_IS_MUTATION_ENABLED`)
+- **Context graph** - datasets, columns, pipelines, dashboards, ML models, documents, ownership, glossary, tags, structured properties, lineage (table + column)
+- **Ingestion** - 100+ connectors into warehouses, lakes, BI, orchestration, ML platforms
+- **Agent interfaces** - [MCP Server](https://docs.datahub.com/docs/features/feature-guides/mcp), [DataHub Skills](https://docs.datahub.com/docs/dev-guides/agent-context/skills), [Agent Context Kit](https://docs.datahub.com/docs/dev-guides/agent-context/agent-context), [Analytics Agent](https://github.com/datahub-project/analytics-agent)
+- **Write paths** - GraphQL / SDK / CLI enrichment; MCP **mutation tools** (v0.5.0+, gated by `TOOLS_IS_MUTATION_ENABLED`)
 
-DataHub powers stacks at companies such as Apple, Pinterest, Netflix, and thousands more. The hackathon thesis is correct: agents need this graph to do real work—and the graph must stay trustworthy when agents write back.
+DataHub powers stacks at companies such as Apple, Pinterest, Netflix, and thousands more. The hackathon thesis is correct: agents need this graph to do real work-and the graph must stay trustworthy when agents write back.
 
 ### 1.3 MidSphere one-liner
 
-**MidSphere is a closed-loop multi-agent system that detects context-quality failures in DataHub, scores blast radius on lineage, mutates the graph with advisory quarantine state, opens fix PRs, and publishes durable MBOM attestations—so the next agent inherits safer context.**
+**MidSphere is a closed-loop multi-agent system that detects context-quality failures in DataHub, scores blast radius on lineage, mutates the graph with advisory quarantine state, opens fix PRs, and publishes durable MBOM attestations-so the next agent inherits safer context.**
 
 It maps to three official challenge lanes at once:
 
-1. **Agents That Do Real Work** — multi-agent swarm with bidirectional graph I/O  
-2. **Metadata-Aware Code Generation** — FixArchitect produces mergeable dbt/SQL with golden queries from DataHub  
-3. **Production ML Agents** — optional ML-leakage / feature-path audits on top of the same lineage spine  
+1. **Agents That Do Real Work** - multi-agent swarm with bidirectional graph I/O  
+2. **Metadata-Aware Code Generation** - FixArchitect produces mergeable dbt/SQL with golden queries from DataHub  
+3. **Production ML Agents** - optional ML-leakage / feature-path audits on top of the same lineage spine  
 
 Primary demo narrative (honest, dataset-native): **selective quality circuit-breaking** on the official **healthcare** sample pipeline.
 
@@ -78,7 +78,7 @@ Primary demo narrative (honest, dataset-native): **selective quality circuit-bre
 | MCP tools named `datahub_get_lineage`, `datahub_add_tag`, `datahub_create_incident` | Real tools are **unprefixed**: `get_lineage`, `add_tags`, `save_document`, … **There is no MCP incident-create tool.** |
 | Tags / `gate_status=BLOCKED` “dynamically block” all MCP consumers | MCP **mutates metadata only**. Search can filter tags/incidents; nothing auto-denies reads. Quarantine is **advisory graph state**. Optional MidSphere **Consumer Gate** honors that state. |
 | `raiseIncident` via MCP on OSS quickstart | Incidents: **GraphQL** path; quality skill marks `raiseIncident` as **Cloud-only**. OSS success path = tags + structured properties + documents. Cloud = optional incident raise. |
-| `datahub datapack load healthcare` with planted mlModel leakage | Official datapacks: `showcase-ecommerce`, `bootstrap`. Healthcare/nyc-taxi load via **ingest + lineage + metadata scripts**. Healthcare plants **quality issues** (negative billing, invalid ages, …)—ideal for selective halt, not target leakage. |
+| `datahub datapack load healthcare` with planted mlModel leakage | Official datapacks: `showcase-ecommerce`, `bootstrap`. Healthcare/nyc-taxi load via **ingest + lineage + metadata scripts**. Healthcare plants **quality issues** (negative billing, invalid ages, …)-ideal for selective halt, not target leakage. |
 | Judging weights 25/20/20/20/15 and “scores 100%” | Stage Two criteria are **equally weighted**. Submissions need not be production-ready. Drop score theater. |
 | Mutations always available | Default `TOOLS_IS_MUTATION_ENABLED=false`. Write-back demos require explicit enablement + tag/property bootstrap. |
 | Skills as bare `SKILL.md` paths | Official skills need YAML frontmatter (`name`, `description`, `allowed-tools`, …), tier/approval language, and real tool contracts. |
@@ -135,12 +135,12 @@ Never mix package trees. Cloud Run images contain `backend/` only. Vercel deploy
 
 | Concern | Contract |
 | --- | --- |
-| Gemini / Vertex | Application Default Credentials via `gcloud auth application-default login` — **no hardcoded API keys** |
+| Gemini / Vertex | Application Default Credentials via `gcloud auth application-default login` - **no hardcoded API keys** |
 | DataHub MCP | `DATAHUB_GMS_URL` + `DATAHUB_GMS_TOKEN` (or `~/.datahubenv`) |
 | Mutations | `TOOLS_IS_MUTATION_ENABLED=true` on the MCP server process MidSphere launches or connects to |
 | Fast path agents | `gemini-3.6-flash` (graph audit, blast radius, quarantine) |
 | Heavy path agents | `gemini-3.1-pro-preview` (code gen, MBOM synthesis) |
-| Agent framework | Antigravity Python SDK (`google.antigravity.Agent`, `LocalAgentConfig`, `CapabilitiesConfig`) — see `.agents/sdk.md` |
+| Agent framework | Antigravity Python SDK (`google.antigravity.Agent`, `LocalAgentConfig`, `CapabilitiesConfig`) - see `.agents/sdk.md` |
 
 Billing project and credit balances live in ops notes (AGENTS.md), not in architecture claims judges must trust.
 
@@ -169,7 +169,7 @@ FixArchitect     ──► FixBundle + GitHub PR URL
 MBOMEngine       ──► MBOM Document URN (related_assets linked)
 ```
 
-### 4.1 ContextSentinel — auditor
+### 4.1 ContextSentinel - auditor
 
 | | |
 | --- | --- |
@@ -189,9 +189,9 @@ MBOMEngine       ──► MBOM Document URN (related_assets linked)
 | `ORPHAN_OWNER` | Entity missing owners / certification tags | ownership gate |
 | `TARGET_LEAKAGE` *(optional extension)* | Short column-lineage path from label-like columns into feature sets of an `mlModel` | only if you **plant** an mlModel + leakage graph yourself |
 
-Do **not** claim target leakage on stock healthcare packs—they do not include planted mlModel leakage.
+Do **not** claim target leakage on stock healthcare packs-they do not include planted mlModel leakage.
 
-### 4.2 CascadeAnalyzer — blast radius
+### 4.2 CascadeAnalyzer - blast radius
 
 | | |
 | --- | --- |
@@ -207,7 +207,7 @@ raw_patients ──► staging_patients ──┬──► mart_billing        (
                                     └──► mart_demographics   (hit by invalid ages / NULL names)
 ```
 
-A naive breaker quarantines everything. MidSphere’s analyzer recommends **only the affected fork** for quarantine—matching the dataset’s designed challenge.
+A naive breaker quarantines everything. MidSphere’s analyzer recommends **only the affected fork** for quarantine-matching the dataset’s designed challenge.
 
 **Risk score (transparent formula, not black-box theater):**
 
@@ -223,7 +223,7 @@ risk = clamp(0, 100,
 
 Publish the formula in README so judges can audit it.
 
-### 4.3 CircuitBreaker — graph mutator
+### 4.3 CircuitBreaker - graph mutator
 
 | | |
 | --- | --- |
@@ -240,11 +240,11 @@ Publish the formula in README so judges can audit it.
 1. Ensure tags exist (bootstrap via `datahub graphql` / CLI once at setup):  
    `urn:li:tag:QUARANTINED`, `urn:li:tag:CIRCUIT_BROKEN`, `urn:li:tag:MIDSPHERE_AUDIT`
 2. `add_tags(tag_urns=[...], entity_urns=[affected...])`  
-   Tags **must exist first** — MCP validates tag URNs.
+   Tags **must exist first** - MCP validates tag URNs.
 3. Ensure structured property exists: e.g. `urn:li:structuredProperty:midsphere.gate_status` (string enum: `OPEN` | `BLOCKED` | `LIFTED`)
 4. `add_structured_properties` with `gate_status=BLOCKED`, plus optional `midsphere.risk_score`, `midsphere.pr_url`
 5. **Do not claim** that MCP consumers are auto-blocked. Document quarantine as **advisory**.
-6. **Optional Consumer Gate** (MidSphere ships this): any MidSphere-aware client (and demo script) filters `tag:QUARANTINED` or `gate_status=BLOCKED` before using entity context—**this** is the demable circuit break.
+6. **Optional Consumer Gate** (MidSphere ships this): any MidSphere-aware client (and demo script) filters `tag:QUARANTINED` or `gate_status=BLOCKED` before using entity context-**this** is the demable circuit break.
 
 **Cloud-only enhancement (never required for OSS pass):**
 
@@ -261,7 +261,7 @@ mutation {
 }
 ```
 
-### 4.4 FixArchitect — metadata-aware code gen
+### 4.4 FixArchitect - metadata-aware code gen
 
 | | |
 | --- | --- |
@@ -278,7 +278,7 @@ mutation {
 - PR body includes AuditReport summary, blast radius, quarantine tags, link to MBOM (filled later)
 - Put sample PR diffs in `examples/prs/` for offline judging
 
-### 4.5 MBOMEngine — attestation publisher
+### 4.5 MBOMEngine - attestation publisher
 
 | | |
 | --- | --- |
@@ -292,7 +292,7 @@ mutation {
 | Field | Value |
 | --- | --- |
 | `document_type` | `"Analysis"` or `"Insight"` |
-| `title` | `MBOM: <entity display name> — MidSphere audit <ISO date>` |
+| `title` | `MBOM: <entity display name> - MidSphere audit <ISO date>` |
 | `content` | Markdown: findings, risk score, blast radius table, quarantine state, PR link, lift criteria |
 | `topics` | `["midsphere", "circuit-breaker", "data-quality", ...]` |
 | `related_assets` | Affected entity URNs |
@@ -365,7 +365,7 @@ To make “circuit breaker” **true without lying about the platform**:
 3. Show DataHub UI: tags + structured props + MBOM document  
 4. Lift quarantine after PR merge simulation → context returns `OPEN`
 
-Optional: document how Analytics Agent or Cursor users can add a search filter `NOT tag:QUARANTINED`—search supports tag filters; this is configuration, not magic enforcement.
+Optional: document how Analytics Agent or Cursor users can add a search filter `NOT tag:QUARANTINED`-search supports tag filters; this is configuration, not magic enforcement.
 
 ---
 
@@ -457,8 +457,8 @@ Contribute via PR to `datahub-project/datahub-skills` with Conventional Commits.
 | --- | --- |
 | **Use of DataHub** | Deep read (lineage, schema, queries, ownership) + real write-back (tags, structured properties, documents). MCP is the primary agent interface. |
 | **Technical Execution** | E2E works: scan → quarantine → gate → PR → MBOM. Claims match code. Mutations smoke-tested. |
-| **Originality** | Active closed-loop **mutation of the context graph** + selective halt + consumer gate—not a chat UI over search. Composes shipped MCP/skills; does not reimplement the catalog. |
-| **Real-World Usefulness** | Selective pipeline halt, PII/orphan gates, fix PR + durable attestation—problems platform teams face. Explicitly **not** required to be production-hardened. |
+| **Originality** | Active closed-loop **mutation of the context graph** + selective halt + consumer gate-not a chat UI over search. Composes shipped MCP/skills; does not reimplement the catalog. |
+| **Real-World Usefulness** | Selective pipeline halt, PII/orphan gates, fix PR + durable attestation-problems platform teams face. Explicitly **not** required to be production-hardened. |
 | **Submission Quality** | &lt;3 min video, live demo or clear setup, Apache 2.0 repo, README that states what/why/how, `examples/` offline artifacts. |
 | **Bonus OSS** | Two skills with proper structure + optional fixes/docs PR. |
 
@@ -524,4 +524,4 @@ midsphere/   # or repo root
 
 ---
 
-*MidSphere — Architecture. Claims are contracts. Contracts must demo.*
+*MidSphere - Architecture. Claims are contracts. Contracts must demo.*

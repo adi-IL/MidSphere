@@ -4,24 +4,27 @@ export default {
   theme: {
     extend: {
       colors: {
-        app: "#0f172a",
-        panel: "#1e293b",
-        elevated: "#334155",
-        primary: "#f8fafc",
-        muted: "#94a3b8",
-        dim: "#64748b",
-        healthy: "#34d399",
-        warn: "#fbbf24",
-        broken: "#f43f5e",
-        brand: "#1890ff",
-        pulse: "#38bdf8",
+        // Vercel-grade monochrome dark (calm product surface)
+        canvas: "#000000",
+        panel: "#0a0a0a",
+        elevated: "#111111",
+        line: "#1a1a1a",
+        line2: "#262626",
+        ink: "#ededed",
+        mute: "#888888",
+        faint: "#666666",
+        // semantic: scarce color
+        good: "#00c853",
+        warn: "#f5a623",
+        bad: "#ff4d4f",
+        accent: "#0070f3",
       },
       fontFamily: {
-        sans: ["Inter", "system-ui", "sans-serif"],
-        mono: ["JetBrains Mono", "ui-monospace", "monospace"],
+        sans: ["Geist", "Inter", "system-ui", "sans-serif"],
+        mono: ["Geist Mono", "ui-monospace", "monospace"],
       },
-      boxShadow: {
-        panel: "0 0 0 1px #334155, 0 12px 40px rgba(0,0,0,0.35)",
+      fontSize: {
+        "2xs": ["11px", { lineHeight: "16px" }],
       },
     },
   },

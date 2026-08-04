@@ -1,6 +1,6 @@
-# AGENTS.md — MidSphere Operations & Agent Contracts
+# AGENTS.md - MidSphere Operations & Agent Contracts
 
-**Autonomous Context Circuit-Breaker — agent, MCP, deploy, and verification bible**  
+**Autonomous Context Circuit-Breaker - agent, MCP, deploy, and verification bible**  
 *universal redesign · supersedes junior `init.md` and `.agents/rules` for implementation*
 
 | Document | Role |
@@ -19,7 +19,7 @@
 ```
 
 > Read ARCHITECTURE.md + DESIGN.md before writing code.  
-> This file is the **contract**. If code contradicts this file, the code is wrong—or update this file first.
+> This file is the **contract**. If code contradicts this file, the code is wrong-or update this file first.
 
 ---
 
@@ -40,7 +40,7 @@ An audit is incomplete until advisory state is written back **when mutations are
 3. MBOM via `save_document` + `related_assets`  
 4. Optional Cloud incident via GraphQL (never required for OSS pass)
 
-If mutations are disabled, run **audit-only** mode and label the job as such—do not fake write success.
+If mutations are disabled, run **audit-only** mode and label the job as such-do not fake write success.
 
 ### 0.3 Non-destructive circuit breaking
 
@@ -160,7 +160,7 @@ class AuditFinding(BaseModel):
 
 **Must:**
 
-- Expand downstream with explicit `max_hops` (default 2–3; confirm if larger)  
+- Expand downstream with explicit `max_hops` (default 2-3; confirm if larger)  
 - Mark **selective impact** per finding type (billing issues ↛ demographics-only nodes)  
 - Compute `risk_score` with the published formula (ARCHITECTURE §4.2)  
 - Output `BlastRadiusMatrix` with hop, impacted bool, reason  
@@ -182,7 +182,7 @@ class AuditFinding(BaseModel):
 
 **Must:**
 
-1. Verify tags exist (bootstrap script if missing)—`add_tags` **fails** if tag URN missing  
+1. Verify tags exist (bootstrap script if missing)-`add_tags` **fails** if tag URN missing  
 2. Apply tags only to **impacted** URNs from Cascade (selective)  
 3. Set structured properties:  
    - `midsphere.gate_status` = `BLOCKED`  
@@ -200,7 +200,7 @@ class AuditFinding(BaseModel):
 **MCP call shapes (authoritative):**
 
 ```python
-# Tags — tags must already exist
+# Tags - tags must already exist
 add_tags(
     tag_urns=[
         "urn:li:tag:QUARANTINED",
@@ -213,16 +213,16 @@ add_tags(
 
 remove_tags(tag_urns=[...], entity_urns=[...])
 
-# Structured properties — property defs must already exist
+# Structured properties - property defs must already exist
 add_structured_properties(
     # follow live tool schema from MCP; values typed per property definition
 )
 ```
 
-Bootstrap (one-time, CLI/GraphQL—not MCP):
+Bootstrap (one-time, CLI/GraphQL-not MCP):
 
 ```bash
-# Create tags (example — use datahub graphql / SDK)
+# Create tags (example - use datahub graphql / SDK)
 # createTag for QUARANTINED, CIRCUIT_BROKEN, MIDSPHERE_AUDIT
 # Create structured properties midsphere.gate_status, midsphere.risk_score, midsphere.job_id, midsphere.pr_url
 python scripts/bootstrap_midsphere_metadata.py
@@ -287,7 +287,7 @@ git config user.email "adi-IL@users.noreply.github.com"
 ```python
 save_document(
     document_type="Analysis",
-    title="MBOM: mart_billing — MidSphere audit 2026-08-03",
+    title="MBOM: mart_billing - MidSphere audit 2026-08-03",
     content="## Summary\n...",
     topics=["midsphere", "circuit-breaker", "data-quality"],
     related_assets=["urn:li:dataset:(...)"],
@@ -303,9 +303,9 @@ Module: `backend/gate/`
 ```python
 def evaluate_context(entity_urn: str) -> GateDecision:
     """
-    OPEN    — no quarantine tags / gate_status not BLOCKED
-    BLOCKED — tag QUARANTINED or CIRCUIT_BROKEN or gate_status=BLOCKED
-    LIFTED  — explicit LIFTED after remediation
+    OPEN    - no quarantine tags / gate_status not BLOCKED
+    BLOCKED - tag QUARANTINED or CIRCUIT_BROKEN or gate_status=BLOCKED
+    LIFTED  - explicit LIFTED after remediation
     """
 ```
 
@@ -409,7 +409,7 @@ async with Agent(config) as agent:
 | Sentinel, Cascade, Breaker | `gemini-3.6-flash` |
 | Fix, MBOM | `gemini-3.1-pro-preview` |
 
-**Auth:** ADC only — `gcloud auth application-default login`. Never commit keys.
+**Auth:** ADC only - `gcloud auth application-default login`. Never commit keys.
 
 **Ops notes (local):**
 
@@ -470,7 +470,7 @@ datahub datapack load showcase-ecommerce
 ### 8.3 Do not document
 
 ```bash
-# WRONG — healthcare is not a datapack with mlModel leakage
+# WRONG - healthcare is not a datapack with mlModel leakage
 datahub datapack load healthcare
 ```
 
@@ -579,7 +579,7 @@ Before UI work:
 - Strip shell metacharacters from any CLI-wrapped URN/query paths  
 - Treat user-provided descriptions/tags as untrusted (skill + agent)  
 - No destructive SQL in FixArchitect suggestions (`DROP`/`DELETE`/`TRUNCATE` require human override flag)  
-- Secrets only in env / secret manager — never in git  
+- Secrets only in env / secret manager - never in git  
 - Service account recommended for unattended Cloud Run → DataHub  
 
 ---
@@ -634,4 +634,4 @@ cd frontend && npm run dev
 
 ---
 
-*MidSphere — AGENTS.md. Contracts over slogans. Real MCP. Reversible quarantine. Demo truth.*
+*MidSphere - AGENTS.md. Contracts over slogans. Real MCP. Reversible quarantine. Demo truth.*

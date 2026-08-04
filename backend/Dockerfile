@@ -12,7 +12,7 @@ COPY app ./app
 COPY api ./api
 COPY agents ./agents
 COPY gate ./gate
-COPY mcp ./mcp
+COPY midsphere_mcp ./midsphere_mcp
 COPY models ./models
 COPY README.md ./
 
