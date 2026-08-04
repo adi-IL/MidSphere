@@ -5,6 +5,7 @@ import {
   type InspectorTab,
 } from "./components/layout/SwarmSidebar";
 import { InspectorDrawer } from "./components/layout/InspectorDrawer";
+import { LoadingScreen } from "./components/layout/LoadingScreen";
 import { LineageCanvas } from "./components/graph/LineageCanvas";
 import { loadCommandJob, fetchHealth, createJob } from "./lib/api";
 import type { AgentName, AgentStatus, JobArtifact, JobEvent } from "./lib/types";
@@ -115,6 +116,7 @@ export default function App() {
   const [statuses, setStatuses] = useState<Record<AgentName, AgentStatus>>(
     idleStatuses(),
   );
+  const [bootStatus, setBootStatus] = useState("Connecting…");
   const cancelRef = useRef(false);
   const waitTimer = useRef<number | null>(null);
 
@@ -147,11 +149,15 @@ export default function App() {
 
   useEffect(() => {
     void (async () => {
+      setBootStatus("Checking API…");
       const h = await fetchHealth();
       setHealth(
         h?.status === "ok"
           ? `API · closed loop${h.datahub_reachable === false ? " · GMS offline" : ""}`
           : "Offline demo mode",
+      );
+      setBootStatus(
+        h?.status === "ok" ? "Loading latest job…" : "Loading offline demo…",
       );
       const loaded = await loadCommandJob();
       applyJobArtifact(loaded.job, loaded.source);
@@ -384,11 +390,7 @@ export default function App() {
   );
 
   if (!job) {
-    return (
-      <div className="flex h-full items-center justify-center bg-canvas text-mute">
-        Loading MidSphere…
-      </div>
-    );
+    return <LoadingScreen status={bootStatus} />;
   }
 
   return (

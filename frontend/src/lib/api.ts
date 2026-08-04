@@ -3,13 +3,23 @@ import { DEMO_JOB } from "./demoJob";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "";
 
-async function tryJson<T>(path: string): Promise<T | null> {
+/** Avoid infinite "Loading MidSphere…" on hung Cloud Run cold starts. */
+const DEFAULT_TIMEOUT_MS = 12_000;
+
+async function tryJson<T>(
+  path: string,
+  timeoutMs = DEFAULT_TIMEOUT_MS,
+): Promise<T | null> {
+  const ctrl = new AbortController();
+  const t = window.setTimeout(() => ctrl.abort(), timeoutMs);
   try {
-    const res = await fetch(`${API_BASE}${path}`);
+    const res = await fetch(`${API_BASE}${path}`, { signal: ctrl.signal });
     if (!res.ok) return null;
     return (await res.json()) as T;
   } catch {
     return null;
+  } finally {
+    window.clearTimeout(t);
   }
 }
 
@@ -32,16 +42,22 @@ export async function createJob(body: {
   mode?: string;
   auto_trip?: boolean;
 }): Promise<JobArtifact | null> {
+  // Closed-loop Antigravity jobs can take 30–90s
+  const ctrl = new AbortController();
+  const t = window.setTimeout(() => ctrl.abort(), 120_000);
   try {
     const res = await fetch(`${API_BASE}/v1/jobs`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
+      signal: ctrl.signal,
     });
     if (!res.ok) return null;
     return (await res.json()) as JobArtifact;
   } catch {
     return null;
+  } finally {
+    window.clearTimeout(t);
   }
 }
 

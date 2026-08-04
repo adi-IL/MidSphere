@@ -129,6 +129,64 @@ body {
   }
 }
 
+/* Boot / loading screen */
+@keyframes load-bar {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(200%);
+  }
+}
+
+@keyframes load-ring {
+  0% {
+    opacity: 0.35;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.9;
+    transform: scale(1.06);
+  }
+  100% {
+    opacity: 0.35;
+    transform: scale(1);
+  }
+}
+
+@keyframes load-dot {
+  0%,
+  100% {
+    opacity: 0.25;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .load-bar {
+    animation: load-bar 1.4s ease-in-out infinite;
+  }
+  .load-ring {
+    animation: load-ring 2s ease-in-out infinite;
+  }
+  .load-dot {
+    animation: load-dot 1.2s ease-in-out infinite;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .load-bar,
+  .load-ring,
+  .load-dot {
+    animation: none;
+  }
+  .load-bar {
+    width: 40%;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
