@@ -70,7 +70,7 @@ class McpClient:
                 for path in ("/health", "/config", "/"):
                     try:
                         r = client.get(f"{base}{path}", headers=self._headers())
-                        if r.status_code < 500:
+                        if 200 <= r.status_code < 300:
                             self.last_probe = DataHubProbeResult(
                                 reachable=True,
                                 gms_url=base,
