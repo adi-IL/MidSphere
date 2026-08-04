@@ -49,7 +49,7 @@ DataHub powers stacks at companies such as Apple, Pinterest, Netflix, and thousa
 
 It maps to three official challenge lanes at once:
 
-1. **Agents That Do Real Work** - multi-agent swarm with bidirectional graph I/O  
+1. **Agents That Do Real Work** - closed-loop multi-stage job with bidirectional graph I/O
 2. **Metadata-Aware Code Generation** - FixArchitect produces mergeable dbt/SQL with golden queries from DataHub  
 3. **Production ML Agents** - optional ML-leakage / feature-path audits on top of the same lineage spine  
 
@@ -97,8 +97,8 @@ Primary demo narrative (honest, dataset-native): **selective quality circuit-bre
                                   ▼
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │ MidSphere Orchestrator (FastAPI · backend/)                                  │
-│  · Job state machine · SSE/WebSocket telemetry · Policy gates                │
-│  · Antigravity Agent runtime · Gemini model routing                          │
+│  · Job API · deterministic run_closed_loop stages · gate policy              │
+│  · Optional Antigravity Gemini summary AFTER the closed loop                 │
 └─────────────────────────────────┬───────────────────────────────────────────┘
                                   │
         ┌─────────────────────────┼─────────────────────────┐
@@ -126,7 +126,7 @@ Primary demo narrative (honest, dataset-native): **selective quality circuit-bre
 | Surface | Stack | Deploy target | Rule |
 | --- | --- | --- | --- |
 | `frontend/` | React 18 · Vite · TypeScript · Tailwind | **Vercel only** | No FastAPI, no agent SDK |
-| `backend/` | Python 3.11+ · FastAPI · Antigravity · MCP client | **GCP Cloud Run only** | No Vite tree, no frontend assets in image |
+| `backend/` | Python 3.11+ · FastAPI · deterministic pipeline · optional Antigravity · MCP client | **GCP Cloud Run only** | No Vite tree, no frontend assets in image |
 | DataHub | Docker quickstart (local) / Cloud tenant (optional) | Local or remote GMS | Backend talks GMS via MCP env |
 
 Never mix package trees. Cloud Run images contain `backend/` only. Vercel deploys `frontend/` only.
@@ -146,36 +146,39 @@ Billing project and credit balances live in ops notes (AGENTS.md), not in archit
 
 ---
 
-## 4. The five-agent swarm
+## 4. Closed-loop stages (shipping)
 
-Agents run as a **directed pipeline** (not free-for-all multi-agent chat). Each stage emits a typed artifact the next stage consumes. Telemetry streams to the UI in real time.
+The job path is a **single deterministic orchestrator** (`agents/pipeline.py` -> `run_closed_loop`), not five separate LLM agent processes. Stage names appear in telemetry for the Command Center. Each stage emits a typed artifact the next stage consumes.
+
+Optional: after the loop finishes, `enrich_job_with_antigravity` may call Google Antigravity + Vertex Gemini (`gemini-3.6-flash` by default) for an operator summary. That is the only default LLM call on the shipping path. Stages themselves use **no per-stage model**.
 
 ```
-Trigger URN(s)
+POST /v1/jobs
     │
     ▼
-ContextSentinel  ──► AuditReport
+run_closed_loop (deterministic)
+    ContextSentinel  ──► AuditFinding[]
+    CascadeAnalyzer  ──► BlastRadiusMatrix + RiskScore
+    CircuitBreaker   ──► QuarantineReceipt (job-local; live MCP only if enabled+GMS)
+    FixArchitect     ──► FixBundle (dry-run path or live PR when wired)
+    MBOMEngine       ──► MBOM path / document URN
     │
     ▼
-CascadeAnalyzer  ──► BlastRadiusMatrix + RiskScore
+optional Antigravity summary (gemini-3.6-flash)
     │
     ▼
-CircuitBreaker   ──► QuarantineReceipt (tags, props, optional incident)
-    │
-    ▼
-FixArchitect     ──► FixBundle + GitHub PR URL
-    │
-    ▼
-MBOMEngine       ──► MBOM Document URN (related_assets linked)
+JobArtifact JSON + SSE/UI telemetry
 ```
+
+Telemetry honesty: `TOOL` / `WRITE` only after a real MCP attempt. Offline demo steps use `STATUS` lines prefixed with `sim `.
 
 ### 4.1 ContextSentinel - auditor
 
 | | |
 | --- | --- |
-| **Model** | `gemini-3.6-flash` |
+| **Implementation** | Deterministic stage in `run_closed_loop` (no LLM) |
 | **Role** | Detect quality / governance / (optional) ML-path anomalies on target entities |
-| **MCP (read)** | `search`, `get_entities`, `list_schema_fields`, `get_lineage`, `get_lineage_paths_between`, `get_dataset_queries` |
+| **MCP (read, when live)** | `search`, `get_entities`, `list_schema_fields`, `get_lineage`, `get_lineage_paths_between`, `get_dataset_queries` |
 | **Outputs** | Structured `AuditFinding[]`: type, severity, evidence URNs, column paths, rationale |
 
 **Finding types (v1, demo-aligned):**
@@ -195,9 +198,9 @@ Do **not** claim target leakage on stock healthcare packs-they do not include pl
 
 | | |
 | --- | --- |
-| **Model** | `gemini-3.6-flash` |
+| **Implementation** | Deterministic stage in `run_closed_loop` (no LLM) |
 | **Role** | Expand downstream lineage; compute selective impact |
-| **MCP (read)** | `get_lineage` (downstream, multi-hop), `get_entities`, `search` |
+| **MCP (read, when live)** | `get_lineage` (downstream, multi-hop), `get_entities`, `search` |
 | **Outputs** | `BlastRadiusMatrix`, `risk_score` ∈ [0, 100], per-node impact tags |
 
 **Selective halt (healthcare story):**
@@ -227,11 +230,12 @@ Publish the formula in README so judges can audit it.
 
 | | |
 | --- | --- |
-| **Model** | `gemini-3.6-flash` |
+| **Implementation** | Deterministic stage in `run_closed_loop` (no LLM) |
 | **Role** | Apply **advisory** quarantine state on selected URNs |
-| **MCP (write)** | Requires `TOOLS_IS_MUTATION_ENABLED=true` |
+| **MCP (write, when live)** | Requires official MCP + `TOOLS_IS_MUTATION_ENABLED=true` + reachable GMS |
 | | `add_tags` / `remove_tags` |
 | | `add_structured_properties` / `remove_structured_properties` |
+| | Offline: job-local `QuarantineReceipt` only (`mutations_applied=false`) |
 | | *(optional Cloud)* GraphQL `raiseIncident` outside MCP |
 | **Outputs** | `QuarantineReceipt`: tags applied, properties set, incident URN if any, lift instructions |
 
@@ -265,11 +269,11 @@ mutation {
 
 | | |
 | --- | --- |
-| **Model** | `gemini-3.1-pro-preview` |
-| **Role** | Generate mergeable fix artifacts grounded in catalog context |
-| **MCP (read)** | `get_dataset_queries`, `list_schema_fields`, `get_entities`, `get_lineage` |
-| **External** | GitHub API: create branch, commit, open PR |
-| **Outputs** | Diff bundle + PR URL; store PR URL on entity via structured property |
+| **Implementation** | Deterministic stage (shipping: dry-run fix path under `examples/prs/`) |
+| **Role** | Produce mergeable fix artifacts grounded in catalog context |
+| **MCP (read, when live)** | `get_dataset_queries`, `list_schema_fields`, `get_entities`, `get_lineage` |
+| **External** | Optional GitHub API for real PRs when token present; else dry-run |
+| **Outputs** | Diff bundle + PR URL or dry-run path |
 
 **Grounding rules:**
 
@@ -282,10 +286,21 @@ mutation {
 
 | | |
 | --- | --- |
-| **Model** | `gemini-3.1-pro-preview` |
+| **Implementation** | Deterministic stage; live `save_document` only when official MCP mutations succeed |
 | **Role** | Persist durable knowledge so future agents inherit the audit |
-| **MCP (write)** | `save_document` (needs mutations enabled; confirm before write per tool contract) |
-| **Outputs** | Document URN + `related_assets` linking target datasets |
+| **MCP (write, when live)** | `save_document` (mutations enabled + GMS up) |
+| **Offline** | Job-local MBOM path under `examples/mboms/` with document URN placeholder |
+| **Outputs** | Document URN and/or path + `related_assets` linking target datasets |
+
+### 4.6 Optional Antigravity summary (only LLM on default path)
+
+| | |
+| --- | --- |
+| **Implementation** | `agents/antigravity_runner.py` after `run_closed_loop` |
+| **Summary model** | `gemini-3.6-flash` (default); fallbacks via `ANTIGRAVITY_MODELS` |
+| **Not used for** | Sentinel, Cascade, Breaker, Fix, or MBOM stage logic (those are deterministic) |
+| **When** | `ANTIGRAVITY_ENABLED=true` and Vertex ADC can reach the model |
+| **On failure** | Job still succeeds; telemetry records unavailability; no fake summary |
 
 **MBOM document contract:**
 
@@ -469,7 +484,7 @@ Contribute via PR to `datahub-project/datahub-skills` with Conventional Commits.
 ```
 midsphere/   # or repo root
 ├── frontend/                 # React 18 + Vite + TS → Vercel
-├── backend/                  # FastAPI + Antigravity + MCP → Cloud Run
+├── backend/                  # FastAPI + deterministic pipeline + optional Antigravity + MCP → Cloud Run
 │   ├── agents/               # five agent modules + typed artifacts
 │   ├── gate/                 # consumer gate
 │   ├── mcp/                  # MCP client wrapper
@@ -503,15 +518,13 @@ midsphere/   # or repo root
 
 | Layer | Library / service | Notes |
 | --- | --- | --- |
-| Agent runtime | `google-antigravity` (Antigravity Python SDK) | `Agent`, streaming thoughts/tool_calls; see `.agents/sdk.md` |
-| LLM | Gemini 3.6 Flash / 3.1 Pro via Vertex + ADC | Dual routing for cost/quality |
-| API | FastAPI | Async jobs, SSE telemetry |
-| MCP | `mcp-server-datahub` (`uvx mcp-server-datahub@latest`) | Read tools always; mutations opt-in |
-| DataHub client | `acryl-datahub` / DataHub SDK | Ingest, GraphQL bootstrap, smoke |
-| Frontend | React 18, Vite, TypeScript, Tailwind | See DESIGN.md |
-| Graph viz | Prefer React Flow / Cosmograph-class 2D first | “3D” only if time allows; 2D is enough for judges |
-| GitHub | PyGithub or REST | Branch + PR |
-| Deploy | Vercel CLI (frontend), Cloud Run (backend) | Strict isolation |
+| Closed loop | `agents/pipeline.py` `run_closed_loop` | Deterministic stages; no per-stage LLM |
+| Optional LLM summary | `google-antigravity` + Vertex Gemini | Default `gemini-3.6-flash` after the loop; see `antigravity_runner.py` |
+| API | FastAPI | Jobs, gate, health |
+| MCP | Official `mcp-server-datahub` via `uvx` stdio | `midsphere_mcp/official.py`; mutations opt-in |
+| GMS probe | httpx | Reachability helper in `midsphere_mcp/client.py` |
+| Frontend | React 18, Vite, TypeScript, Tailwind, React Flow, Geist | See DESIGN.md (monochrome Command Center) |
+| Deploy | Vercel (frontend), Cloud Run (backend) | Strict isolation |
 
 ---
 
@@ -520,7 +533,7 @@ midsphere/   # or repo root
 | Version | Notes |
 | --- | --- |
 | Legacy junior blueprint / init | Strong thesis; incorrect MCP/incident/datapack/judging details |
-| **ARCHITECTURE.md (this file)** | Production-correct contracts, selective healthcare demo, advisory quarantine + Consumer Gate, equal judging weights |
+| **ARCHITECTURE.md (this file)** | Aligned with shipping deterministic orchestrator + optional Gemini summary; selective healthcare demo; advisory quarantine + Consumer Gate |
 
 ---
 
