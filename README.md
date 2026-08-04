@@ -42,13 +42,16 @@ Primary demo graph: healthcare forking pipeline (`raw -> staging -> mart_billing
 
 | Layer | Technology |
 | --- | --- |
-| Frontend | React 18, Vite, TypeScript, Tailwind, React Flow, Geist |
+| Frontend | React 18, Vite, TypeScript, Tailwind, React Flow, Geist (monochrome Command Center) |
 | Backend | FastAPI, Pydantic, httpx, uvicorn |
-| Agents | Google Antigravity SDK + Gemini (`gemini-3.6-flash` / `gemini-3.1-pro-preview`) on the job path when Vertex ADC allows; deterministic closed loop always runs |
-| Catalog | DataHub GMS + official [mcp-server-datahub](https://github.com/acryldata/mcp-server-datahub) via `uvx` stdio (`mcp` Python client) |
-| Deploy | Frontend: Vercel project `midsphere`. Backend: GCP Cloud Run `midsphere-api` |
+| Orchestrator | Deterministic closed-loop stages in `backend/agents/pipeline.py` (Sentinel, Cascade, Breaker, Fix, MBOM) |
+| LLM | Optional Google Antigravity SDK summary with Vertex Gemini (`gemini-3.6-flash` by default) after the deterministic loop |
+| Catalog | DataHub GMS + official [mcp-server-datahub](https://github.com/acryldata/mcp-server-datahub) via `uvx` stdio when `USE_OFFICIAL_MCP=true` (Python `mcp` client in `midsphere_mcp/official.py`) |
+| Deploy | Frontend: Vercel project `midsphere`. Backend: GCP Cloud Run `midsphere-api` (image includes `uv`/`uvx`) |
 
 Install paths match this repo: `pip install -r backend/requirements.txt` and `npm install` under `frontend/`.
+
+Telemetry honesty: live MCP attempts emit `TOOL` events; demo steps emit `STATUS` lines starting with `sim ` and never claim a live write when `mutations_applied` is false.
 
 ## MCP tools (real names only)
 

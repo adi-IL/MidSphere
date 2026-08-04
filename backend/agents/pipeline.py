@@ -1,15 +1,20 @@
 """MidSphere closed-loop runner: audit → blast → quarantine → fix → MBOM.
 
-Shared by HTTP API and unit tests. Telemetry uses real unprefixed MCP tool names.
-Live DataHub mutations only when GMS probe succeeds and mutations are enabled.
+Deterministic orchestrator stages (Sentinel → Cascade → Breaker → Fix → MBOM).
+Optional: official mcp-server-datahub tool calls when USE_OFFICIAL_MCP=true and GMS is up.
+Optional: one Antigravity/Gemini operator summary after the loop.
+
+Telemetry honesty:
+- kind TOOL / WRITE only after a real MCP (or GMS) attempt
+- kind STATUS with prefix 'sim ' for deterministic demo steps that did not call MCP
 """
 
 from __future__ import annotations
 
+import os
 import re
 import uuid
 from datetime import datetime, timezone
-from typing import Callable
 
 from models.artifacts import (
     AuditFinding,
@@ -20,7 +25,6 @@ from models.artifacts import (
 )
 from midsphere_mcp.client import REAL_MCP_TOOLS, McpClient, build_client_from_env
 
-# Healthcare selective-halt URNs (demo graph)
 URN_RAW = "urn:li:dataset:(urn:li:dataPlatform:sqlite,healthcare.raw_patients,PROD)"
 URN_STAGING = (
     "urn:li:dataset:(urn:li:dataPlatform:sqlite,healthcare.staging_patients,PROD)"
@@ -34,7 +38,6 @@ URN_DEMOGRAPHICS = (
 
 SEVERITY_WEIGHT = {"CRITICAL": 1.0, "HIGH": 0.75, "MEDIUM": 0.5, "LOW": 0.25}
 
-# Matches tool-name tokens in telemetry for validation
 _TOOL_TOKEN_RE = re.compile(
     r"\b(get_lineage|list_schema_fields|get_entities|search|get_dataset_queries|"
     r"add_tags|remove_tags|add_structured_properties|remove_structured_properties|"
@@ -55,7 +58,6 @@ def compute_risk_score(
     has_production_env: bool = True,
     missing_owner: bool = False,
 ) -> int:
-    """Published formula (ARCHITECTURE): clamp 0–100."""
     sw = SEVERITY_WEIGHT.get(severity, 0.5)
     raw = (
         25 * sw
@@ -68,9 +70,12 @@ def compute_risk_score(
 
 
 def extract_tool_names_from_events(events: list[JobEvent]) -> list[str]:
+    """Only extract tool names from real TOOL/WRITE/MBOM lines (not sim STATUS)."""
     names: list[str] = []
     for e in events:
-        if e.kind not in ("TOOL", "WRITE", "MBOM", "PR"):
+        if e.kind not in ("TOOL", "WRITE", "MBOM"):
+            continue
+        if e.message.startswith("sim "):
             continue
         for m in _TOOL_TOKEN_RE.findall(e.message):
             names.append(m)
@@ -78,12 +83,10 @@ def extract_tool_names_from_events(events: list[JobEvent]) -> list[str]:
 
 
 def assert_telemetry_mcp_clean(events: list[JobEvent]) -> None:
-    """Raise if telemetry invents forbidden tool names."""
     for name in extract_tool_names_from_events(events):
         if name.startswith("datahub_") or name == "create_incident":
             raise AssertionError(f"Forbidden tool name in telemetry: {name}")
         if name not in REAL_MCP_TOOLS:
-            # allow only known real tools when we emit tool-shaped tokens
             raise AssertionError(f"Unknown/non-MCP tool token in telemetry: {name}")
 
 
@@ -93,26 +96,137 @@ def run_closed_loop(
     auto_trip: bool = True,
     client: McpClient | None = None,
 ) -> JobArtifact:
-    """Primary entry: full MidSphere closed loop on a root URN."""
     job_id = str(uuid.uuid4())
     events: list[JobEvent] = []
     mcp = client or build_client_from_env()
     probe = mcp.probe()
+    live_tool_calls = 0
 
     def emit(agent: str, kind: str, message: str) -> None:
         events.append(
             JobEvent(ts=_ts(), agent=agent, kind=kind, message=message)  # type: ignore[arg-type]
         )
 
+    def sim(agent: str, tool: str, detail: str) -> None:
+        """Deterministic demo step — not a live MCP call."""
+        emit(
+            agent,
+            "STATUS",
+            f"sim {tool} {detail} (demo_closed_loop; no live MCP call)",
+        )
+        mcp.record_tool(tool)
+
+    emit(
+        "ContextSentinel",
+        "STATUS",
+        f"stage=ContextSentinel orchestrator=deterministic gms_reachable={probe.reachable}",
+    )
     emit(
         "ContextSentinel",
         "STATUS",
         f"datahub probe reachable={probe.reachable} detail={probe.detail}",
     )
-    emit("ContextSentinel", "TOOL", f"get_lineage urn={root_urn} max_hops=2 upstream=true")
-    mcp.record_tool("get_lineage")
-    emit("ContextSentinel", "TOOL", f"list_schema_fields urn={URN_RAW}")
-    mcp.record_tool("list_schema_fields")
+
+    # Prefer live official MCP reads when enabled and tools available
+    official_ok = False
+    official_tools: list[str] = []
+    use_official = os.environ.get("USE_OFFICIAL_MCP", "true").lower() in (
+        "1",
+        "true",
+        "yes",
+    )
+    if use_official:
+        try:
+            from midsphere_mcp.official import call_official_mcp, probe_official_mcp
+
+            s_url = os.environ.get("DATAHUB_GMS_URL", "http://localhost:8080")
+            s_tok = os.environ.get("DATAHUB_GMS_TOKEN", "")
+            mut = os.environ.get("TOOLS_IS_MUTATION_ENABLED", "false").lower() in (
+                "1",
+                "true",
+                "yes",
+            )
+            official = probe_official_mcp(s_url, s_tok, mutations=mut)
+            if official.ok and official.tools:
+                official_ok = True
+                official_tools = official.tools
+                emit(
+                    "ContextSentinel",
+                    "STATUS",
+                    f"official mcp-server-datahub up tools={len(official.tools)} cmd={official.server_cmd}",
+                )
+                # Real tool invocations only when GMS is reachable
+                if probe.reachable:
+                    read_calls: list[tuple[str, dict]] = []
+                    if "get_lineage" in official_tools:
+                        read_calls.append(
+                            (
+                                "get_lineage",
+                                {
+                                    "urn": root_urn,
+                                    "upstream": True,
+                                    "max_hops": 2,
+                                },
+                            )
+                        )
+                    if "list_schema_fields" in official_tools:
+                        read_calls.append(
+                            ("list_schema_fields", {"urn": URN_RAW})
+                        )
+                    if "search" in official_tools:
+                        read_calls.append(("search", {"query": "healthcare"}))
+                    if read_calls:
+                        live = call_official_mcp(
+                            s_url,
+                            s_tok,
+                            mutations=False,
+                            tool_calls=read_calls,
+                            timeout=90.0,
+                        )
+                        for c in live.calls:
+                            if c.get("ok"):
+                                live_tool_calls += 1
+                                emit(
+                                    "ContextSentinel",
+                                    "TOOL",
+                                    f"{c.get('tool')} official_mcp ok",
+                                )
+                            else:
+                                emit(
+                                    "ContextSentinel",
+                                    "STATUS",
+                                    f"official_mcp {c.get('tool')} fail {c.get('error', '')[:120]}",
+                                )
+                else:
+                    emit(
+                        "ContextSentinel",
+                        "STATUS",
+                        "official mcp client ready but GMS unreachable; skipping live tool calls",
+                    )
+            else:
+                emit(
+                    "ContextSentinel",
+                    "STATUS",
+                    f"official mcp unavailable: {(official.error or 'no tools')[:280]}",
+                )
+        except Exception as exc:  # noqa: BLE001
+            emit(
+                "ContextSentinel",
+                "ERROR",
+                f"official mcp path error: {type(exc).__name__}: {str(exc)[:240]}",
+            )
+    else:
+        emit(
+            "ContextSentinel",
+            "STATUS",
+            "USE_OFFICIAL_MCP=false; deterministic stages only (no official MCP process)",
+        )
+
+    # Deterministic audit findings (demo healthcare graph)
+    if live_tool_calls == 0:
+        sim("ContextSentinel", "get_lineage", f"urn={root_urn} max_hops=2 upstream=true")
+        sim("ContextSentinel", "list_schema_fields", f"urn={URN_RAW}")
+
     emit(
         "ContextSentinel",
         "FIND",
@@ -144,6 +258,18 @@ def run_closed_loop(
             rationale="Produces negative length_of_stay in billing path",
         ),
     ]
+
+    emit(
+        "CascadeAnalyzer",
+        "STATUS",
+        "stage=CascadeAnalyzer orchestrator=deterministic selective_halt=true",
+    )
+    if live_tool_calls == 0:
+        sim(
+            "CascadeAnalyzer",
+            "get_lineage",
+            f"urn={URN_STAGING} downstream=true max_hops=2",
+        )
 
     nodes = [
         BlastNode(
@@ -177,7 +303,7 @@ def run_closed_loop(
     ]
     impacted = [n for n in nodes if n.impacted]
     non_impacted = [n for n in nodes if not n.impacted]
-    assert impacted and non_impacted  # selective semantics baked into demo graph
+    assert impacted and non_impacted
 
     risk = compute_risk_score(
         severity="HIGH",
@@ -186,8 +312,6 @@ def run_closed_loop(
         has_production_env=True,
         missing_owner=False,
     )
-    emit("CascadeAnalyzer", "TOOL", f"get_lineage urn={URN_STAGING} downstream=true max_hops=2")
-    mcp.record_tool("get_lineage")
     emit(
         "CascadeAnalyzer",
         "SCORE",
@@ -198,55 +322,93 @@ def run_closed_loop(
     pr = None
     mbom = None
     mutations_applied = False
-    execution_mode = "live_mcp" if (probe.reachable and probe.mutations_enabled) else "demo_closed_loop"
+    execution_mode = (
+        "live_mcp" if (probe.reachable and live_tool_calls > 0) else "demo_closed_loop"
+    )
 
     if mode != "dry_run" and auto_trip:
-        quarantine_targets = [URN_BILLING]  # selective: billing only, not demographics
         emit(
             "CircuitBreaker",
-            "TOOL",
-            f"add_tags tag_urns=[urn:li:tag:QUARANTINED,urn:li:tag:CIRCUIT_BROKEN] "
-            f"entity_urns={len(quarantine_targets)}",
+            "STATUS",
+            "stage=CircuitBreaker advisory_quarantine selective_entity=mart_billing",
         )
-        mcp.record_tool("add_tags")
-        emit(
-            "CircuitBreaker",
-            "WRITE",
-            "add_structured_properties property=midsphere.gate_status value=BLOCKED",
+        quarantine_targets = [URN_BILLING]
+        # Real mutations only when official MCP + mutations + GMS
+        mut_env = os.environ.get("TOOLS_IS_MUTATION_ENABLED", "false").lower() in (
+            "1",
+            "true",
+            "yes",
         )
-        mcp.record_tool("add_structured_properties")
+        wrote_live = False
+        if (
+            use_official
+            and official_ok
+            and probe.reachable
+            and mut_env
+            and "add_tags" in official_tools
+        ):
+            try:
+                from midsphere_mcp.official import call_official_mcp
 
-        if execution_mode == "live_mcp":
-            # Best-effort live GraphQL tag mutation — success optional; flag honestly
-            gql = """
-            mutation($input: BatchAddTagsInput!) {
-              batchAddTags(input: $input)
-            }
-            """
-            result = mcp.try_graphql(
-                gql,
-                {
-                    "input": {
-                        "tagUrns": ["urn:li:tag:QUARANTINED"],
-                        "resources": [{"resourceUrn": URN_BILLING}],
-                    }
-                },
-            )
-            if result is not None and "errors" not in result:
-                mutations_applied = True
-                emit("CircuitBreaker", "STATUS", "live GMS batchAddTags attempted ok")
-            else:
+                s_url = os.environ.get("DATAHUB_GMS_URL", "http://localhost:8080")
+                s_tok = os.environ.get("DATAHUB_GMS_TOKEN", "")
+                live = call_official_mcp(
+                    s_url,
+                    s_tok,
+                    mutations=True,
+                    tool_calls=[
+                        (
+                            "add_tags",
+                            {
+                                "tag_urns": [
+                                    "urn:li:tag:QUARANTINED",
+                                    "urn:li:tag:CIRCUIT_BROKEN",
+                                ],
+                                "entity_urns": quarantine_targets,
+                            },
+                        )
+                    ],
+                    timeout=90.0,
+                )
+                for c in live.calls:
+                    if c.get("ok"):
+                        wrote_live = True
+                        mutations_applied = True
+                        live_tool_calls += 1
+                        emit("CircuitBreaker", "TOOL", f"{c.get('tool')} official_mcp ok")
+                        emit(
+                            "CircuitBreaker",
+                            "WRITE",
+                            "add_tags applied via official mcp-server-datahub",
+                        )
+                    else:
+                        emit(
+                            "CircuitBreaker",
+                            "STATUS",
+                            f"official_mcp add_tags fail {c.get('error', '')[:120]}",
+                        )
+            except Exception as exc:  # noqa: BLE001
                 emit(
                     "CircuitBreaker",
-                    "STATUS",
-                    "live GMS mutation unavailable or failed; advisory state local only",
+                    "ERROR",
+                    f"live mutation error: {type(exc).__name__}: {str(exc)[:200]}",
                 )
-                execution_mode = "demo_closed_loop"
-        else:
+
+        if not wrote_live:
+            sim(
+                "CircuitBreaker",
+                "add_tags",
+                "tag_urns=[QUARANTINED,CIRCUIT_BROKEN] entity_urns=1",
+            )
+            sim(
+                "CircuitBreaker",
+                "add_structured_properties",
+                "property=midsphere.gate_status value=BLOCKED",
+            )
             emit(
                 "CircuitBreaker",
                 "STATUS",
-                "demo_closed_loop: advisory quarantine local; no live DataHub mutation claimed",
+                "advisory quarantine recorded in job artifact only (no live DataHub write)",
             )
 
         quarantine = QuarantineReceipt(
@@ -264,8 +426,17 @@ def run_closed_loop(
             gateStatus="BLOCKED",
         )
 
-        emit("FixArchitect", "TOOL", f"get_dataset_queries urn={URN_STAGING}")
-        mcp.record_tool("get_dataset_queries")
+        emit(
+            "FixArchitect",
+            "STATUS",
+            "stage=FixArchitect metadata_aware_diff dry_run",
+        )
+        if live_tool_calls == 0 or "get_dataset_queries" not in official_tools:
+            sim(
+                "FixArchitect",
+                "get_dataset_queries",
+                f"urn={URN_STAGING}",
+            )
         fix_path = "examples/prs/fix-negative-billing.example.diff"
         emit("FixArchitect", "PR", f"dry_run path={fix_path}")
         pr = {
@@ -274,19 +445,86 @@ def run_closed_loop(
             "diff_summary": "filter negative billing + enforce admission<=discharge",
         }
 
+        emit("MBOMEngine", "STATUS", "stage=MBOMEngine attestation")
+        if (
+            use_official
+            and official_ok
+            and probe.reachable
+            and mut_env
+            and "save_document" in official_tools
+        ):
+            # live save_document attempted only with mutations
+            try:
+                from midsphere_mcp.official import call_official_mcp
+
+                s_url = os.environ.get("DATAHUB_GMS_URL", "http://localhost:8080")
+                s_tok = os.environ.get("DATAHUB_GMS_TOKEN", "")
+                doc_title = f"MBOM MidSphere {job_id[:8]}"
+                live = call_official_mcp(
+                    s_url,
+                    s_tok,
+                    mutations=True,
+                    tool_calls=[
+                        (
+                            "save_document",
+                            {
+                                "document_type": "Analysis",
+                                "title": doc_title,
+                                "content": f"# MBOM\njob={job_id}\nrisk={risk}\n",
+                                "topics": ["midsphere", "circuit-breaker"],
+                                "related_assets": quarantine_targets,
+                            },
+                        )
+                    ],
+                    timeout=90.0,
+                )
+                for c in live.calls:
+                    if c.get("ok"):
+                        live_tool_calls += 1
+                        mutations_applied = True
+                        emit("MBOMEngine", "TOOL", "save_document official_mcp ok")
+                        emit("MBOMEngine", "MBOM", f"save_document live ok job={job_id[:8]}")
+                    else:
+                        emit(
+                            "MBOMEngine",
+                            "STATUS",
+                            f"official_mcp save_document fail {c.get('error', '')[:120]}",
+                        )
+            except Exception as exc:  # noqa: BLE001
+                emit(
+                    "MBOMEngine",
+                    "ERROR",
+                    f"save_document error: {type(exc).__name__}: {str(exc)[:200]}",
+                )
+
+        if not any(
+            e.kind == "MBOM" and "live ok" in e.message for e in events
+        ):
+            sim("MBOMEngine", "save_document", "type=Analysis related_assets=1")
+            doc_urn = f"urn:li:document:midsphere-mbom-{job_id[:8]}"
+            emit(
+                "MBOMEngine",
+                "STATUS",
+                f"mbom artifact path examples/mboms/healthcare-billing-mbom.example.md urn={doc_urn}",
+            )
+            mbom = {
+                "document_urn": doc_urn,
+                "path": "examples/mboms/healthcare-billing-mbom.example.md",
+                "related_assets": quarantine_targets,
+            }
+        else:
+            mbom = {
+                "document_urn": f"urn:li:document:midsphere-mbom-{job_id[:8]}",
+                "path": "examples/mboms/healthcare-billing-mbom.example.md",
+                "related_assets": quarantine_targets,
+            }
+
+    if execution_mode == "demo_closed_loop":
         emit(
-            "MBOMEngine",
-            "TOOL",
-            "save_document type=Analysis related_assets=1",
+            "ContextSentinel",
+            "STATUS",
+            f"execution_mode=demo_closed_loop live_tool_calls={live_tool_calls} mutations_applied={mutations_applied}",
         )
-        mcp.record_tool("save_document")
-        doc_urn = f"urn:li:document:midsphere-mbom-{job_id[:8]}"
-        emit("MBOMEngine", "MBOM", f"save_document urn={doc_urn}")
-        mbom = {
-            "document_urn": doc_urn,
-            "path": "examples/mboms/healthcare-billing-mbom.example.md",
-            "related_assets": quarantine_targets,
-        }
 
     job = JobArtifact(
         job_id=job_id,
@@ -308,70 +546,8 @@ def run_closed_loop(
         datahub_reachable=probe.reachable,
     )
 
-    # Official mcp-server-datahub path (stdio via uvx) when enabled
-    import os
-
-    if os.environ.get("USE_OFFICIAL_MCP", "true").lower() in ("1", "true", "yes"):
-        try:
-            from midsphere_mcp.official import probe_official_mcp, call_official_mcp
-
-            s_url = os.environ.get("DATAHUB_GMS_URL", "http://localhost:8080")
-            s_tok = os.environ.get("DATAHUB_GMS_TOKEN", "")
-            mut = os.environ.get("TOOLS_IS_MUTATION_ENABLED", "false").lower() in (
-                "1",
-                "true",
-                "yes",
-            )
-            # List tools only is enough to prove official server wiring
-            official = probe_official_mcp(s_url, s_tok, mutations=mut)
-            if official.ok:
-                emit(
-                    "ContextSentinel",
-                    "STATUS",
-                    f"official mcp-server-datahub tools={len(official.tools)} cmd={official.server_cmd}",
-                )
-                for tname in (
-                    "get_lineage",
-                    "list_schema_fields",
-                    "search",
-                    "add_tags",
-                    "save_document",
-                ):
-                    if tname in official.tools:
-                        emit("ContextSentinel", "STATUS", f"official_mcp_has_tool {tname}")
-                # Optional live read if GMS is actually healthy (search)
-                if probe.reachable and "search" in official.tools:
-                    live = call_official_mcp(
-                        s_url,
-                        s_tok,
-                        mutations=False,
-                        tool_calls=[("search", {"query": "healthcare"})],
-                        timeout=60.0,
-                    )
-                    for c in live.calls:
-                        emit(
-                            "ContextSentinel",
-                            "TOOL",
-                            f"{c.get('tool')} official_mcp {'ok' if c.get('ok') else 'fail'}",
-                        )
-                        if c.get("tool") == "search" and c.get("ok"):
-                            job.datahub_reachable = True
-            else:
-                emit(
-                    "ContextSentinel",
-                    "STATUS",
-                    f"official mcp unavailable: {(official.error or 'unknown')[:300]}",
-                )
-        except Exception as exc:  # noqa: BLE001
-            emit(
-                "ContextSentinel",
-                "ERROR",
-                f"official mcp path error: {type(exc).__name__}: {str(exc)[:240]}",
-            )
-
     assert_telemetry_mcp_clean(job.events)
 
-    # Antigravity + Gemini enrichment (real SDK call; honest on failure)
     try:
         from agents.antigravity_runner import enrich_job_with_antigravity
 
@@ -394,7 +570,6 @@ def lift_quarantine(
     entity_urns: list[str] | None = None,
     client: McpClient | None = None,
 ) -> JobArtifact:
-    """Reverse path: remove quarantine for URN(s); gate becomes not BLOCKED."""
     if job.quarantine is None:
         job.events.append(
             JobEvent(
@@ -412,8 +587,8 @@ def lift_quarantine(
         JobEvent(
             ts=_ts(),
             agent="CircuitBreaker",
-            kind="TOOL",
-            message=f"remove_tags tag_urns=[urn:li:tag:QUARANTINED] entity_urns={len(targets)}",
+            kind="STATUS",
+            message=f"sim remove_tags entity_urns={len(targets)} (job-local lift; no live MCP unless configured)",
         )
     )
     mcp = client or build_client_from_env()
@@ -427,7 +602,9 @@ def lift_quarantine(
         job.quarantine.gateStatus = "LIFTED"
         job.quarantine.properties["midsphere.gate_status"] = "LIFTED"
         job.quarantine.tagsApplied = [
-            t for t in job.quarantine.tagsApplied if "QUARANTINED" not in t and "CIRCUIT" not in t
+            t
+            for t in job.quarantine.tagsApplied
+            if "QUARANTINED" not in t and "CIRCUIT" not in t
         ]
     else:
         job.quarantine.gateStatus = "BLOCKED"
@@ -437,14 +614,13 @@ def lift_quarantine(
         JobEvent(
             ts=_ts(),
             agent="CircuitBreaker",
-            kind="WRITE",
+            kind="STATUS",
             message=f"gate_status={job.quarantine.gateStatus} remaining={len(remaining)}",
         )
     )
     return job
 
 
-# Back-compat alias used by early routes
 def run_demo_pipeline(
     root_urn: str, mode: str = "full", auto_trip: bool = True
 ) -> JobArtifact:

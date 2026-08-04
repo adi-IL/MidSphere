@@ -65,12 +65,17 @@ def health() -> dict:
         "gate_policy": GATE_POLICY,
         "mutations_env": probe.mutations_enabled,
         "antigravity": os.environ.get("ANTIGRAVITY_ENABLED", "true"),
+        "use_official_mcp": os.environ.get("USE_OFFICIAL_MCP", "true"),
         "official_mcp": official,
         "stack": {
             "fastapi": True,
-            "antigravity": True,
-            "gemini_models": ["gemini-3.6-flash", "gemini-3.1-pro-preview"],
-            "mcp_server": "mcp-server-datahub via uvx stdio",
+            "orchestrator": "deterministic closed-loop stages",
+            "antigravity_summary": os.environ.get("ANTIGRAVITY_ENABLED", "true"),
+            "gemini_summary_model": os.environ.get(
+                "ANTIGRAVITY_MODELS", "gemini-3.6-flash"
+            ).split(",")[0],
+            "mcp_server": "official mcp-server-datahub via uvx stdio when USE_OFFICIAL_MCP=true",
+            "live_gms": probe.reachable,
         },
     }
 

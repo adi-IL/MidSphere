@@ -138,9 +138,9 @@ Never mix package trees. Cloud Run images contain `backend/` only. Vercel deploy
 | Gemini / Vertex | Application Default Credentials via `gcloud auth application-default login` - **no hardcoded API keys** |
 | DataHub MCP | `DATAHUB_GMS_URL` + `DATAHUB_GMS_TOKEN` (or `~/.datahubenv`) |
 | Mutations | `TOOLS_IS_MUTATION_ENABLED=true` on the MCP server process MidSphere launches or connects to |
-| Fast path agents | `gemini-3.6-flash` (graph audit, blast radius, quarantine) |
-| Heavy path agents | `gemini-3.1-pro-preview` (code gen, MBOM synthesis) |
-| Agent framework | Antigravity Python SDK (`google.antigravity.Agent`, `LocalAgentConfig`, `CapabilitiesConfig`) - see `.agents/sdk.md` |
+| Closed loop | Deterministic stages in `run_closed_loop` (not five separate LLM agents) |
+| Optional summary | Antigravity + Vertex Gemini (`gemini-3.6-flash` default) after the loop |
+| MCP | Official `mcp-server-datahub` via uvx stdio when `USE_OFFICIAL_MCP=true` |
 
 Billing project and credit balances live in ops notes (AGENTS.md), not in architecture claims judges must trust.
 
