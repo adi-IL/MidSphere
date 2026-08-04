@@ -1,0 +1,84 @@
+# Deploy frontend/ → Vercel production on push to main.
+# Path-filtered monorepo job (official Vercel GitHub Actions pattern).
+#
+# Required secrets:
+#   VERCEL_TOKEN
+#   VERCEL_ORG_ID
+#   VERCEL_PROJECT_ID
+#
+# Docs: https://vercel.com/docs/git/vercel-for-github
+#       https://vercel.com/guides/how-can-i-use-github-actions-with-vercel
+
+name: Deploy Frontend (Vercel)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "frontend/**"
+      - ".github/workflows/deploy-frontend.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-frontend-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Build & deploy to Vercel
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: frontend
+    env:
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck / lint
+        run: npm run lint
+
+      - name: Install Vercel CLI
+        run: npm install --global vercel@latest
+
+      - name: Pull Vercel production env
+        run: vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
+
+      - name: Build for production (Vercel)
+        run: vercel build --prod --token="$VERCEL_TOKEN"
+
+      - name: Deploy prebuilt to production
+        id: deploy
+        run: |
+          set -euo pipefail
+          URL=$(vercel deploy --prebuilt --prod --token="$VERCEL_TOKEN")
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+          echo "Deployed: $URL"
+
+      - name: Summary
+        run: |
+          {
+            echo "### Frontend deploy"
+            echo ""
+            echo "- **URL:** ${{ steps.deploy.outputs.url }}"
+            echo "- **Alias:** https://midsphere.vercel.app"
+            echo "- **Commit:** \`${{ github.sha }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"

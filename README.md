@@ -120,11 +120,23 @@ Healthcare sample (local DataHub quickstart + dataset scripts):
 | POST | `/v1/jobs/{id}/lift` | Lift quarantine |
 | GET | `/v1/gate/{urn}` | Consumer Gate decision |
 
+## CI/CD (GitHub Actions)
+
+Pushes to `main` auto-deploy by path:
+
+| Change under | Workflow | Target |
+| --- | --- | --- |
+| `frontend/**` | Deploy Frontend | Vercel production (`midsphere`) |
+| `backend/**` | Deploy Backend | Cloud Run `midsphere-api` |
+
+Also: `CI` runs typecheck + pytest on PRs. Setup secrets and notes: [`.github/DEPLOY.md`](./.github/DEPLOY.md).
+
 ## Repository layout
 
 ```
 frontend/          Command Center (Vercel)
 backend/           Swarm API (Cloud Run)
+.github/workflows/ Path-filtered CI + deploy
 skills/            OSS skill drafts
 examples/          Offline MBOMs, diffs, telemetry
 scripts/           Bootstrap helpers
@@ -132,6 +144,7 @@ ARCHITECTURE.md    System design
 DESIGN.md          Command Center UI
 AGENTS.md          Ops contracts
 ```
+
 
 ## Docs for builders
 
