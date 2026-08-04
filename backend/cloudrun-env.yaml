@@ -1,10 +1,11 @@
+# Cloud Run env file. GOOGLE_CLOUD_PROJECT is injected by Cloud Run metadata
+# for the deploying project; do not commit a personal project id here.
 CORS_ORIGINS: "http://localhost:5173,https://midsphere.vercel.app,https://midsphere-aditya-ai-architects-projects.vercel.app"
 DATAHUB_GMS_URL: "http://localhost:8080"
 DATAHUB_TIER: "oss"
 USE_OFFICIAL_MCP: "true"
 TOOLS_IS_MUTATION_ENABLED: "false"
 ANTIGRAVITY_ENABLED: "true"
-ANTIGRAVITY_MODELS: "gemini-3.6-flash"
+ANTIGRAVITY_MODELS: "gemini-3.6-flash,gemini-3.1-pro-preview"
 ANTIGRAVITY_ATTACH_MCP: "false"
-GOOGLE_CLOUD_PROJECT: "project-dace7531-ac79-4f81-bd2"
 VERTEX_LOCATION: "global"

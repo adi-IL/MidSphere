@@ -28,17 +28,33 @@ async def _chat_summary(job: JobArtifact) -> tuple[bool, str, str]:
     from google.antigravity import Agent, LocalAgentConfig
     from google.antigravity.types import McpStdioServer
 
-    project = os.environ.get("GOOGLE_CLOUD_PROJECT", "project-dace7531-ac79-4f81-bd2")
+    # Never hardcode a GCP project id in source. Prefer env, then ADC metadata.
+    project = (
+        os.environ.get("GOOGLE_CLOUD_PROJECT")
+        or os.environ.get("GCP_PROJECT")
+        or os.environ.get("GCLOUD_PROJECT")
+        or ""
+    )
+    if not project:
+        try:
+            import google.auth
+
+            _, project = google.auth.default()
+            project = project or ""
+        except Exception:  # noqa: BLE001
+            project = ""
     location = os.environ.get("VERTEX_LOCATION", "global")
-    # Prefer env overrides; try modern model ids first
+    # Antigravity is the agent harness; Gemini model IDs are the Vertex backends it can call.
     candidates = [
         m.strip()
         for m in os.environ.get(
             "ANTIGRAVITY_MODELS",
-            "gemini-3.6-flash,gemini-2.5-flash,gemini-2.5-pro,gemini-3.1-pro-preview",
+            "gemini-3.6-flash,gemini-3.1-pro-preview,gemini-2.5-flash,gemini-2.5-pro",
         ).split(",")
         if m.strip()
     ]
+    if not project:
+        return False, "", "GOOGLE_CLOUD_PROJECT unset and ADC project unavailable"
 
     findings_blob = "\n".join(
         f"- {f.type} {f.severity} {f.entity_urn}: {f.rationale}" for f in job.findings
@@ -86,17 +102,19 @@ async def _chat_summary(job: JobArtifact) -> tuple[bool, str, str]:
     for with_mcp in (bool(mcp_servers), False):
         for model in candidates:
             try:
-                config = LocalAgentConfig(
+                kwargs = dict(
                     system_instructions=(
-                        "You are a data platform agent for MidSphere. Be precise. "
+                        "You are MidSphere operator summary via Antigravity. Be precise. "
                         "Prefer short operator summaries. No emojis."
                     ),
                     model=model,
                     vertex=True,
                     project=project,
                     location=location,
-                    mcp_servers=mcp_servers if with_mcp else None,
                 )
+                if with_mcp and mcp_servers:
+                    kwargs["mcp_servers"] = mcp_servers
+                config = LocalAgentConfig(**kwargs)
                 async with Agent(config) as agent:
                     resp = await agent.chat(prompt)
                     text = await resp.text()
