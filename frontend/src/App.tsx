@@ -4,7 +4,7 @@ import { SwarmSidebar } from "./components/layout/SwarmSidebar";
 import { InspectorDrawer } from "./components/layout/InspectorDrawer";
 import { LineageCanvas } from "./components/graph/LineageCanvas";
 import { loadCommandJob, fetchHealth, createJob } from "./lib/api";
-import type { AgentName, AgentStatus, JobArtifact } from "./lib/types";
+import type { AgentName, AgentStatus, JobArtifact, JobEvent } from "./lib/types";
 import { AGENT_ACCENTS, DEFAULT_ROOT_URN } from "./lib/types";
 
 const AGENTS: AgentName[] = [
@@ -13,6 +13,33 @@ const AGENTS: AgentName[] = [
   "CircuitBreaker",
   "FixArchitect",
   "MBOMEngine",
+];
+
+const WAIT_HEARTBEATS: { agent: AgentName; message: string }[] = [
+  {
+    agent: "ContextSentinel",
+    message: "stage=ContextSentinel closed loop started · probing catalog context",
+  },
+  {
+    agent: "ContextSentinel",
+    message: "awaiting workforce response · audit in flight…",
+  },
+  {
+    agent: "CascadeAnalyzer",
+    message: "awaiting blast-radius / risk stage…",
+  },
+  {
+    agent: "CircuitBreaker",
+    message: "awaiting selective quarantine stage…",
+  },
+  {
+    agent: "FixArchitect",
+    message: "awaiting fix artifact stage…",
+  },
+  {
+    agent: "MBOMEngine",
+    message: "awaiting MBOM attestation stage…",
+  },
 ];
 
 function idleStatuses(): Record<AgentName, AgentStatus> {
@@ -29,46 +56,47 @@ function doneStatuses(): Record<AgentName, AgentStatus> {
   >;
 }
 
-/** Derive stage status from which agents appear in the visible event prefix. */
-function statusesFromEvents(
-  job: JobArtifact,
-  visibleCount: number,
-  scanning: boolean,
-): Record<AgentName, AgentStatus> {
-  const slice = job.events.slice(0, visibleCount);
-  const seen = new Set<string>();
-  for (const e of slice) {
-    if (AGENTS.includes(e.agent as AgentName)) seen.add(e.agent);
-  }
+function nowTs(): string {
+  const d = new Date();
+  const p = (n: number, w = 2) => String(n).padStart(w, "0");
+  return `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}.${p(d.getMilliseconds(), 3)}`;
+}
 
-  const out = idleStatuses();
-  if (scanning && slice.length === 0) {
-    out.ContextSentinel = "RUNNING";
-    return out;
-  }
+function makeLog(
+  agent: string,
+  kind: JobEvent["kind"],
+  message: string,
+): JobEvent {
+  return { ts: nowTs(), agent, kind, message };
+}
 
-  let last: AgentName | null = null;
-  for (const a of AGENTS) {
-    if (seen.has(a)) {
-      out[a] = "DONE";
-      last = a;
+function modeLabel(mode?: string): string {
+  if (mode === "live_mcp") return "live";
+  if (mode === "demo_closed_loop") return "demo";
+  if (mode === "antigravity_closed_loop") return "closed loop";
+  return "job";
+}
+
+/** Group job events by first appearance of each swarm agent (pipeline order). */
+function eventsByAgent(events: JobEvent[]): Map<AgentName, JobEvent[]> {
+  const map = new Map<AgentName, JobEvent[]>();
+  for (const a of AGENTS) map.set(a, []);
+  for (const e of events) {
+    if (AGENTS.includes(e.agent as AgentName)) {
+      map.get(e.agent as AgentName)!.push(e);
     }
   }
-
-  // While replaying, mark the next incomplete stage as running
-  if (visibleCount < job.events.length && last) {
-    const idx = AGENTS.indexOf(last);
-    if (idx >= 0 && idx < AGENTS.length - 1) {
-      const next = AGENTS[idx + 1];
-      if (out[next] === "IDLE") out[next] = "RUNNING";
-    }
-  } else if (visibleCount < job.events.length && !last) {
-    out.ContextSentinel = "RUNNING";
-  } else if (job.status === "succeeded" && visibleCount >= job.events.length) {
-    return doneStatuses();
+  // Orphan STATUS without agent mapping — attach to first agent if any
+  const orphans = events.filter((e) => !AGENTS.includes(e.agent as AgentName));
+  if (orphans.length) {
+    const first = map.get("ContextSentinel")!;
+    first.push(...orphans);
   }
+  return map;
+}
 
-  return out;
+function sleep(ms: number): Promise<void> {
+  return new Promise((r) => setTimeout(r, ms));
 }
 
 export default function App() {
@@ -81,53 +109,40 @@ export default function App() {
   );
   const [scanning, setScanning] = useState(false);
   const [selectedAgent, setSelectedAgent] = useState<AgentName | "ALL">("ALL");
-  const [visibleEventCount, setVisibleEventCount] = useState(0);
-  const [replayActive, setReplayActive] = useState(false);
-  const replayTimer = useRef<number | null>(null);
+  /** Sentinel-style newest-first live log */
+  const [logs, setLogs] = useState<JobEvent[]>([]);
+  const [statuses, setStatuses] = useState<Record<AgentName, AgentStatus>>(
+    idleStatuses(),
+  );
+  const cancelRef = useRef(false);
+  const waitTimer = useRef<number | null>(null);
 
-  const clearReplay = useCallback(() => {
-    if (replayTimer.current != null) {
-      window.clearInterval(replayTimer.current);
-      replayTimer.current = null;
-    }
-    setReplayActive(false);
+  const addLog = useCallback((log: JobEvent) => {
+    // Prepend — same as Sentinel
+    setLogs((prev) => [log, ...prev]);
   }, []);
 
-  const startReplay = useCallback(
-    (j: JobArtifact, animate: boolean) => {
-      clearReplay();
-      if (!animate || j.events.length === 0) {
-        setVisibleEventCount(j.events.length);
-        setReplayActive(false);
-        return;
-      }
-      setVisibleEventCount(0);
-      setReplayActive(true);
-      let i = 0;
-      const step = Math.max(1, Math.ceil(j.events.length / 40));
-      replayTimer.current = window.setInterval(() => {
-        i = Math.min(j.events.length, i + step);
-        setVisibleEventCount(i);
-        if (i >= j.events.length) {
-          clearReplay();
-          setVisibleEventCount(j.events.length);
-        }
-      }, 45);
-    },
-    [clearReplay],
-  );
+  const clearWaitTimer = useCallback(() => {
+    if (waitTimer.current != null) {
+      window.clearInterval(waitTimer.current);
+      waitTimer.current = null;
+    }
+  }, []);
 
-  const applyJob = useCallback(
-    (j: JobArtifact, src: "api" | "demo", animate = false) => {
-      setJob(j);
-      setSource(src);
-      const firstImpacted =
-        j.blast_radius.nodes.find((n) => n.impacted)?.urn ?? j.root_urn;
-      setSelectedUrn(firstImpacted);
-      startReplay(j, animate);
-    },
-    [startReplay],
-  );
+  const seedLogsFromJob = useCallback((j: JobArtifact) => {
+    // Initial load: show full job events newest-first (no freeze animation)
+    const reversed = [...j.events].reverse();
+    setLogs(reversed);
+    setStatuses(j.status === "succeeded" ? doneStatuses() : idleStatuses());
+  }, []);
+
+  const applyJobArtifact = useCallback((j: JobArtifact, src: "api" | "demo") => {
+    setJob(j);
+    setSource(src);
+    const firstImpacted =
+      j.blast_radius.nodes.find((n) => n.impacted)?.urn ?? j.root_urn;
+    setSelectedUrn(firstImpacted);
+  }, []);
 
   useEffect(() => {
     void (async () => {
@@ -138,26 +153,85 @@ export default function App() {
           : "Offline demo mode",
       );
       const loaded = await loadCommandJob();
-      // Initial load: show full stream (no theatrical replay)
-      applyJob(loaded.job, loaded.source, false);
+      applyJobArtifact(loaded.job, loaded.source);
+      seedLogsFromJob(loaded.job);
     })();
-    return () => clearReplay();
-  }, [applyJob, clearReplay]);
+    return () => {
+      cancelRef.current = true;
+      clearWaitTimer();
+    };
+  }, [applyJobArtifact, seedLogsFromJob, clearWaitTimer]);
+
+  /**
+   * Stream completed job events stage-by-stage into the terminal (Sentinel
+   * sequential addLog after each agent step). Backend is still one POST;
+   * presentation matches live terminal progression.
+   */
+  const streamJobIntoTerminal = useCallback(
+    async (j: JobArtifact) => {
+      const byAgent = eventsByAgent(j.events);
+      const st = idleStatuses();
+      setStatuses({ ...st });
+
+      for (const agent of AGENTS) {
+        if (cancelRef.current) return;
+        st[agent] = "RUNNING";
+        setStatuses({ ...st });
+        addLog(
+          makeLog(agent, "STATUS", `stage=${agent} running`),
+        );
+
+        const chunk = byAgent.get(agent) ?? [];
+        if (chunk.length === 0) {
+          await sleep(120);
+        } else {
+          // Reveal that stage's events one-by-one (newest-first prepend)
+          for (const ev of chunk) {
+            if (cancelRef.current) return;
+            addLog(ev);
+            await sleep(90);
+          }
+        }
+
+        st[agent] = "DONE";
+        setStatuses({ ...st });
+        addLog(makeLog(agent, "STATUS", `stage=${agent} done`));
+        await sleep(60);
+      }
+
+      addLog(
+        makeLog(
+          "ContextSentinel",
+          "STATUS",
+          `job complete risk=${j.blast_radius.risk_score} findings=${j.findings.length}`,
+        ),
+      );
+      setStatuses(doneStatuses());
+    },
+    [addLog],
+  );
 
   const onScan = useCallback(async () => {
+    cancelRef.current = false;
+    clearWaitTimer();
     setScanning(true);
     setSelectedAgent("ALL");
-    setVisibleEventCount(0);
-    setReplayActive(false);
-    // Optimistic: show first stage running while request in flight
+    setLogs([]);
+    setStatuses(() => {
+      const s = idleStatuses();
+      s.ContextSentinel = "RUNNING";
+      return s;
+    });
+
+    // Keep graph visible but clear quarantine state during run
     setJob((prev) =>
       prev
         ? {
             ...prev,
-            events: [],
             status: "running",
             findings: [],
             quarantine: null,
+            events: [],
             blast_radius: {
               ...prev.blast_radius,
               risk_score: 0,
@@ -169,44 +243,119 @@ export default function App() {
           }
         : prev,
     );
+
+    addLog(
+      makeLog(
+        "ContextSentinel",
+        "STATUS",
+        "POST /v1/jobs · closed loop submitted",
+      ),
+    );
+    addLog(
+      makeLog(
+        "ContextSentinel",
+        "STATUS",
+        WAIT_HEARTBEATS[0].message,
+      ),
+    );
+
+    // Live heartbeats while waiting on blocking API (prevents empty freeze)
+    let beat = 1;
+    waitTimer.current = window.setInterval(() => {
+      const step = WAIT_HEARTBEATS[Math.min(beat, WAIT_HEARTBEATS.length - 1)];
+      addLog(makeLog(step.agent, "STATUS", step.message));
+      setStatuses((prev) => {
+        const next = { ...prev };
+        // Soft-progress stages while waiting
+        const idx = Math.min(beat, AGENTS.length - 1);
+        for (let i = 0; i < AGENTS.length; i++) {
+          if (i < idx) next[AGENTS[i]] = "DONE";
+          else if (i === idx) next[AGENTS[i]] = "RUNNING";
+          else next[AGENTS[i]] = "IDLE";
+        }
+        return next;
+      });
+      beat += 1;
+    }, 2800);
+
     try {
       const created = await createJob({
         root_urn: job?.root_urn ?? DEFAULT_ROOT_URN,
         mode: "full",
         auto_trip: true,
       });
+      clearWaitTimer();
+
       if (created?.job_id) {
-        applyJob(created, "api", true);
+        addLog(
+          makeLog(
+            "ContextSentinel",
+            "STATUS",
+            `response received job=${created.job_id.slice(0, 8)}… streaming stages`,
+          ),
+        );
+        applyJobArtifact(created, "api");
         setHealth((prev) =>
           prev.startsWith("Offline") ? "API · closed loop" : prev,
         );
+        // Reset soft-progress; stream real events stage-by-stage
+        setStatuses(idleStatuses());
+        await streamJobIntoTerminal(created);
       } else if (job) {
-        applyJob(
-          {
-            ...job,
-            job_id: `${job.job_id}-rerun-${Date.now()}`,
-            status: "succeeded",
-          },
-          "demo",
-          true,
+        const demo: JobArtifact = {
+          ...job,
+          job_id: `${job.job_id}-rerun-${Date.now()}`,
+          status: "succeeded",
+        };
+        addLog(
+          makeLog(
+            "ContextSentinel",
+            "STATUS",
+            "API unavailable · replaying local demo artifact",
+          ),
         );
+        applyJobArtifact(demo, "demo");
+        setStatuses(idleStatuses());
+        await streamJobIntoTerminal(demo);
+      } else {
+        addLog(
+          makeLog("ContextSentinel", "ERROR", "scan failed · no job returned"),
+        );
+        setStatuses(idleStatuses());
       }
+    } catch (e) {
+      clearWaitTimer();
+      const msg = e instanceof Error ? e.message : "unknown error";
+      addLog(makeLog("ContextSentinel", "ERROR", `scan failed: ${msg}`));
+      setStatuses(idleStatuses());
     } finally {
+      clearWaitTimer();
       setScanning(false);
     }
-  }, [applyJob, job]);
+  }, [
+    addLog,
+    applyJobArtifact,
+    clearWaitTimer,
+    job,
+    streamJobIntoTerminal,
+  ]);
 
-  const statuses = useMemo(() => {
-    if (!job) return null;
-    if (scanning && job.events.length === 0) {
-      const s = idleStatuses();
-      s.ContextSentinel = "RUNNING";
-      return s;
-    }
-    return statusesFromEvents(job, visibleEventCount, scanning);
-  }, [job, visibleEventCount, scanning]);
+  const onClearLogs = useCallback(() => {
+    setLogs([]);
+  }, []);
 
-  if (!job || !statuses) {
+  const agents = useMemo(
+    () =>
+      AGENTS.map((name) => ({
+        name,
+        status: statuses[name],
+        accent: AGENT_ACCENTS[name],
+        short: "",
+      })),
+    [statuses],
+  );
+
+  if (!job) {
     return (
       <div className="flex h-full items-center justify-center bg-canvas text-mute">
         Loading MidSphere…
@@ -225,20 +374,14 @@ export default function App() {
       />
       <div className="flex min-h-0 flex-1">
         <SwarmSidebar
-          agents={AGENTS.map((name) => ({
-            name,
-            status: statuses[name],
-            accent: AGENT_ACCENTS[name],
-            short: "",
-          }))}
-          events={job.events}
+          agents={agents}
+          logs={logs}
           jobId={job.job_id}
-          job={job}
+          modeLabel={modeLabel(job.execution_mode)}
           scanning={scanning}
-          replayActive={replayActive}
-          visibleEventCount={visibleEventCount}
           selectedAgent={selectedAgent}
           onSelectAgent={setSelectedAgent}
+          onClearLogs={onClearLogs}
         />
         <main className="relative min-w-0 flex-1">
           <LineageCanvas
