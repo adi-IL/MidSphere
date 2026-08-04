@@ -35,4 +35,15 @@ Root [DESIGN.md](../DESIGN.md) — Deep Slate palette, three-pane layout, real M
 # deploy: vercel --prod
 ```
 
-Status: **scaffold only**.
+## Commands
+
+```bash
+npm install
+npm run dev      # http://localhost:5173
+npm run build
+vercel --prod    # project: midsphere (link once)
+```
+
+`VITE_API_BASE_URL` optional — empty uses same-origin / Vite proxy to backend.
+
+Status: **Command Center v0** (demo job offline; live API when backend up).

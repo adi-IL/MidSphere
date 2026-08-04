@@ -1,0 +1,62 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg-app: #0f172a;
+  --bg-panel: #1e293b;
+  --border-subtle: #334155;
+  --circuit-healthy: #34d399;
+  --circuit-warn: #fbbf24;
+  --circuit-broken: #f43f5e;
+  --brand-datahub: #1890ff;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg-app);
+  color: #f8fafc;
+}
+
+/* Graph edge pulse (respect reduced motion) */
+@media (prefers-reduced-motion: no-preference) {
+  .edge-flow {
+    stroke-dasharray: 6 4;
+    animation: dash 1.5s linear infinite;
+  }
+  .agent-pulse {
+    animation: pulse-bar 2s ease-in-out infinite;
+  }
+}
+
+@keyframes dash {
+  to {
+    stroke-dashoffset: -20;
+  }
+}
+
+@keyframes pulse-bar {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* Scrollbars */
+.scrollbar-thin::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: #475569;
+  border-radius: 999px;
+}

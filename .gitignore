@@ -79,7 +79,11 @@ datahub_*.db
 # --- Deploy local state (link per machine; do not commit) ---
 .vercel/
 frontend/.vercel/
+frontend/.env.local
 .gcloud/
+
+# --- Backend local venv ---
+backend/.venv/
 
 # --- Generated / large binary dumps ---
 examples/ui/*.png
