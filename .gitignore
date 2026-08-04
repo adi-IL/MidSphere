@@ -1,0 +1,87 @@
+# =============================================================================
+# MidSphere .gitignore
+# Public product surface stays tracked. Internal recon & secrets stay local.
+# =============================================================================
+
+# --- Secrets ---
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+.secrets/
+credentials.json
+service-account*.json
+
+# --- INTERNAL / LOCAL-ONLY (do not push) ---
+# Upstream clones, HTML snapshots, hackathon recon — not product source
+/resource/
+# Official Devpost rules dump (local reference only)
+/datahub-agent-hackathon.md
+# Operator scratch, billing notes, personal runbooks
+/internal/
+*.local.md
+NOTES.local.md
+# Agent session / IDE agent caches
+.agents/cache/
+.agents/history/
+# Optional: keep .agents/sdk.md + rules tracked for implementers
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+dist/
+build/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.tox/
+.uv/
+# Prefer committing backend/uv.lock once deps stabilize; ignore root locks
+/uv.lock
+/poetry.lock
+
+# --- Node / frontend ---
+node_modules/
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+frontend/.turbo/
+*.tsbuildinfo
+.pnpm-store/
+npm-debug.log*
+yarn-error.log*
+
+# --- IDE / OS ---
+.idea/
+.vscode/
+*.swp
+*~
+.DS_Store
+Thumbs.db
+
+# --- Runtime / DataHub local ---
+.midsphere/
+*.log
+logs/
+tmp/
+.temp/
+datahub_*.db
+*.sqlite
+
+# --- Deploy local state (link per machine; do not commit) ---
+.vercel/
+frontend/.vercel/
+.gcloud/
+
+# --- Generated / large binary dumps ---
+examples/ui/*.png
+examples/ui/*.jpg
+!examples/ui/.gitkeep

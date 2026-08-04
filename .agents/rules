@@ -1,0 +1,110 @@
+# MidSphere Autonomous Agent Rules & Operational Standards
+# Version: 2.0.0 (universalized)
+# Authority: root AGENTS.md · ARCHITECTURE.md · DESIGN.md
+
+===============================================================================
+SECTION 0: DOCUMENT AUTHORITY
+===============================================================================
+
+0.1 Before writing code, agents MUST read in order:
+    1. ARCHITECTURE.md
+    2. DESIGN.md
+    3. AGENTS.md
+    4. This file (.agents/rules)
+
+0.2 resource/ and datahub-agent-hackathon.md are reference material.
+    Do not delete or rewrite them as part of MidSphere implementation.
+
+0.3 Antigravity SDK patterns: .agents/sdk.md
+
+===============================================================================
+SECTION 1: SYSTEM PHILOSOPHY
+===============================================================================
+
+1.1 CONTEXT MANDATE
+DataHub's context graph is the system of record. Prefer MCP reads over invented schemas.
+
+1.2 CLOSED-LOOP WRITE-BACK
+When mutations are enabled, findings write back:
+  - Tags: QUARANTINED, CIRCUIT_BROKEN, MIDSPHERE_AUDIT
+  - Structured properties: midsphere.gate_status, risk_score, job_id, pr_url
+  - MBOM via save_document + related_assets
+  - Optional Cloud-only GraphQL raiseIncident (never required for OSS)
+
+1.3 NO ENFORCEMENT FICTION
+Forbidden: claiming MCP auto-blocks all consumers of quarantined entities.
+Allowed: advisory metadata + MidSphere Consumer Gate.
+
+1.4 NON-DESTRUCTIVE
+Quarantines are reversible. No DROP/DELETE warehouse data. No hard-delete of catalog entities.
+
+===============================================================================
+SECTION 2: REAL MCP TOOL NAMES ONLY
+===============================================================================
+
+2.1 READ
+  search, get_entities, list_schema_fields, get_lineage,
+  get_lineage_paths_between, get_dataset_queries, search_documents
+
+2.2 WRITE (TOOLS_IS_MUTATION_ENABLED=true)
+  add_tags, remove_tags, add_structured_properties,
+  remove_structured_properties, save_document, update_description
+
+2.3 FORBIDDEN / NONEXISTENT
+  datahub_get_lineage, datahub_add_tag, datahub_create_incident,
+  create_incident as an MCP tool
+
+===============================================================================
+SECTION 3: AGENT PIPELINE
+===============================================================================
+
+3.1 ORDER (strict)
+  ContextSentinel → CascadeAnalyzer → CircuitBreaker → FixArchitect → MBOMEngine
+
+3.2 MODELS
+  gemini-3.6-flash  → Sentinel, Cascade, Breaker
+  gemini-3.1-pro-preview → Fix, MBOM
+
+3.3 FRAMEWORK
+  google.antigravity.Agent + LocalAgentConfig + CapabilitiesConfig
+  Auth: gcloud ADC only — never hardcode keys.
+
+===============================================================================
+SECTION 4: DEPLOY ISOLATION
+===============================================================================
+
+4.1 frontend/  → React 18 + Vite + TypeScript → Vercel ONLY
+4.2 backend/   → FastAPI + Antigravity → Cloud Run ONLY
+4.3 Never mix package trees or bake frontend into Cloud Run images.
+4.4 UI tokens and layout: DESIGN.md (Deep Slate) — not pure black zinc.
+
+===============================================================================
+SECTION 5: SAMPLE DATA
+===============================================================================
+
+5.1 Primary: resource/.../static-assets/datasets/healthcare
+    ingest.yaml + add_lineage.py + add_metadata.py
+5.2 Official datapacks: showcase-ecommerce, bootstrap
+5.3 Do NOT document: datahub datapack load healthcare
+5.4 Healthcare plants quality issues (selective halt), not mlModel leakage.
+
+===============================================================================
+SECTION 6: VERIFICATION & SUBMISSION
+===============================================================================
+
+6.1 MCP smoke: read + --mutations against live GMS
+6.2 E2E: findings → selective quarantine → gate BLOCKED → PR/diff → MBOM
+6.3 examples/ for offline judges
+6.4 Apache-2.0 LICENSE at root; public repo; video < 3 min
+6.5 Judging criteria are EQUALLY weighted — no fabricated percentages
+
+===============================================================================
+SECTION 7: GIT
+===============================================================================
+
+git config user.name "adi-IL"
+git config user.email "adi-IL@users.noreply.github.com"
+
+===============================================================================
+END OF RULES — full contracts in AGENTS.md
+===============================================================================

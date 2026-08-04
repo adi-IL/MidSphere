@@ -1,0 +1,23 @@
+--- a/models/staging/stg_patients.sql
++++ b/models/staging/stg_patients.sql
+@@ -1,12 +1,18 @@
+ -- Example FixArchitect output (dry-run). Ground in get_dataset_queries in production.
+ with source as (
+   select * from {{ ref('raw_patients') }}
+ ),
+ cleaned as (
+   select
+     name,
+     age,
+     billing_amount,
+     date_of_admission,
+     discharge_date
+   from source
++  where billing_amount is not null
++    and billing_amount >= 0
++    and (
++      discharge_date is null
++      or date_of_admission <= discharge_date
++    )
+ )
+ select * from cleaned

@@ -1,0 +1,14 @@
+# Example MidSphere swarm telemetry (real MCP tool names only)
+14:02:01.012  ContextSentinel   TOOL   get_lineage  urn=...raw_patients max_hops=2 upstream=true  240ms
+14:02:01.180  ContextSentinel   TOOL   list_schema_fields  urn=...raw_patients  90ms
+14:02:01.310  ContextSentinel   FIND   NEGATIVE_BILLING  severity=HIGH  entity=...mart_billing
+14:02:01.311  ContextSentinel   FIND   DATE_SWAP  severity=MEDIUM  entity=...raw_patients
+14:02:02.100  CascadeAnalyzer   TOOL   get_lineage  urn=...staging_patients downstream=true max_hops=2
+14:02:03.400  CascadeAnalyzer   SCORE  risk=72  impacted=2 selective=true  billing=yes demographics=no
+14:02:04.010  CircuitBreaker    TOOL   add_tags  tag_urns=[QUARANTINED,CIRCUIT_BROKEN] entity_urns=2
+14:02:04.200  CircuitBreaker    TOOL   add_structured_properties  gate_status=BLOCKED
+14:02:04.400  CircuitBreaker    WRITE  quarantine_ok  receipt_id=qr_example
+14:02:05.100  FixArchitect      TOOL   get_dataset_queries  urn=...staging_patients
+14:02:06.800  FixArchitect      PR     dry_run  path=examples/prs/fix-negative-billing.example.diff
+14:02:07.200  MBOMEngine        TOOL   save_document  type=Analysis  related_assets=2
+14:02:07.500  MBOMEngine        MBOM   urn=li:document:midsphere-mbom-example
