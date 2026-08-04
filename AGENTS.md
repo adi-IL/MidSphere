@@ -14,30 +14,33 @@ Read ARCHITECTURE.md and DESIGN.md first. If code disagrees with this file, upda
 
 ## 1. Runtime architecture (shipping)
 
-The HTTP job path is **not** five independent LLM agents. It is a single deterministic orchestrator (`agents/pipeline.py` -> `run_closed_loop`) with named stages, then an optional Antigravity pass.
+Primary workforce: **Google Antigravity** Agent with five MidSphere custom tools. Deterministic stages run only as fallback when Antigravity is disabled or fails.
 
 ```
 POST /v1/jobs
-  -> run_closed_loop (deterministic)
-       ContextSentinel stage
-       CascadeAnalyzer stage
-       CircuitBreaker stage (if auto_trip and not dry_run)
-       FixArchitect stage
-       MBOMEngine stage
-  -> enrich_job_with_antigravity (optional Gemini summary)
-  -> JobArtifact JSON
+  -> run_closed_loop
+       PRIMARY (ANTIGRAVITY_ENABLED=true, default):
+         Agent(LocalAgentConfig tools=[midsphere_*], optional MCP)
+           midsphere_context_sentinel_audit
+           midsphere_cascade_analyzer
+           midsphere_circuit_breaker_trip
+           midsphere_fix_architect
+           midsphere_mbom_engine
+         -> JobArtifact execution_mode=antigravity_closed_loop
+       FALLBACK (disabled / force / Agent error):
+         run_closed_loop_fallback deterministic stages
+         -> JobArtifact execution_mode=demo_closed_loop | live_mcp
 ```
 
-| Stage | Implementation | Model |
-| --- | --- | --- |
-| ContextSentinel | Deterministic findings on healthcare-style quality graph | none |
-| CascadeAnalyzer | Deterministic selective blast radius + risk formula | none |
-| CircuitBreaker | Job-local quarantine receipt; live `add_tags` only if official MCP + mutations + GMS | none |
-| FixArchitect | Dry-run fix path / diff artifact | none |
-| MBOMEngine | MBOM path/URN artifact; live `save_document` only if MCP mutations succeed | none |
-| Operator summary | `agents/antigravity_runner.py` via Google Antigravity SDK | `gemini-3.6-flash` (default), fallback list in env |
+| Stage | Primary (Antigravity tool) | Fallback | Model |
+| --- | --- | --- | --- |
+| ContextSentinel | `midsphere_context_sentinel_audit` | deterministic findings | Gemini via Agent |
+| CascadeAnalyzer | `midsphere_cascade_analyzer` | selective blast + risk | Gemini via Agent |
+| CircuitBreaker | `midsphere_circuit_breaker_trip` | job-local / live MCP tags | Gemini via Agent |
+| FixArchitect | `midsphere_fix_architect` | dry-run fix path | Gemini via Agent |
+| MBOMEngine | `midsphere_mbom_engine` | MBOM artifact | Gemini via Agent |
 
-Logical stage names appear in telemetry for the Command Center. They are not five separate `Agent(...)` sessions unless you extend the runner.
+Stage tool bodies live in `agents/stage_tools.py`. Orchestration entry is `agents/pipeline.py` -> `run_closed_loop` -> `agents/antigravity_runner.py`.
 
 ## 2. Shared job artifact
 
@@ -53,7 +56,7 @@ Logical stage names appear in telemetry for the Command Center. They are not fiv
   "pr": null,
   "mbom": null,
   "events": [],
-  "execution_mode": "demo_closed_loop | live_mcp",
+  "execution_mode": "antigravity_closed_loop | demo_closed_loop | live_mcp",
   "mutations_applied": false,
   "datahub_reachable": false
 }
@@ -86,14 +89,17 @@ Write: `add_tags`, `remove_tags`, `add_structured_properties`, `save_document`
 
 `midsphere_mcp/client.py` also probes GMS over HTTP for reachability. That probe is not a substitute for official MCP tool calls.
 
-## 4. Antigravity and Gemini
+## 4. Antigravity and Gemini (primary workforce)
 
 - Package: `google-antigravity` (see requirements.txt)
-- Entry: `enrich_job_with_antigravity` after the deterministic loop
+- Entry: `run_job_with_antigravity` via `run_closed_loop` (primary); deterministic `run_closed_loop_fallback` on failure
+- Custom tools: five `midsphere_*` callables on `LocalAgentConfig(tools=...)`
 - Auth: Vertex + ADC (`GOOGLE_CLOUD_PROJECT`, `VERTEX_LOCATION=global`)
-- Default model: `gemini-3.6-flash`
-- MCP attachment to Antigravity is optional (`ANTIGRAVITY_ATTACH_MCP`); Cloud Run defaults attach off so summary still works without spawning uvx inside the agent harness
-- On failure: job still succeeds; telemetry records `antigravity unavailable` or continues without enrichment
+- Default models: `ANTIGRAVITY_MODELS` list starting with `gemini-3.6-flash`
+- MCP attachment optional (`ANTIGRAVITY_ATTACH_MCP`); Cloud Run defaults attach off to avoid uvx spawn inside the agent harness
+- On failure: telemetry records `antigravity primary failed` then falls back to deterministic closed loop
+- Force fallback: `ANTIGRAVITY_FORCE_FALLBACK=true` or `ANTIGRAVITY_ENABLED=false`
+- Telemetry: `TOOL` events for `midsphere_*` custom tools are allowed; invented `datahub_*` names remain forbidden
 
 ## 5. Consumer Gate
 

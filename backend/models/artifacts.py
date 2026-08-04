@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field
 Severity = Literal["CRITICAL", "HIGH", "MEDIUM", "LOW"]
 GateStatus = Literal["OPEN", "BLOCKED", "LIFTED"]
 EventKind = Literal["TOOL", "FIND", "SCORE", "WRITE", "PR", "MBOM", "ERROR", "STATUS"]
-ExecutionMode = Literal["demo_closed_loop", "live_mcp"]
+ExecutionMode = Literal["demo_closed_loop", "live_mcp", "antigravity_closed_loop"]
 
 
 class AuditFinding(BaseModel):

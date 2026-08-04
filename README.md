@@ -49,7 +49,7 @@ Trigger -> Sentinel -> Cascade -> Breaker -> Fix -> MBOM
               +---- DataHub MCP (read + mutation write-back when enabled) ----+
 ```
 
-Shipping path: stages run as a **deterministic orchestrator** in `run_closed_loop`. After the loop, **Google Antigravity** can produce an operator summary with Gemini models on Vertex (ADC). Live MCP tool calls use official `mcp-server-datahub` when configured; offline jobs use honest `sim` telemetry and never fake mutation success.
+Shipping path: **Google Antigravity is the primary workforce**. One Agent receives five MidSphere stage tools (`midsphere_context_sentinel_audit` → `midsphere_mbom_engine`) and runs the closed loop on Vertex Gemini (ADC). If Antigravity is disabled or fails, a **deterministic fallback** in `run_closed_loop_fallback` still produces a complete job with honest `sim` telemetry. Live DataHub MCP uses official `mcp-server-datahub` when configured; offline jobs never fake mutation success.
 
 Primary demo: healthcare forking pipeline (`raw -> staging -> mart_billing | mart_demographics`). Selective halt: billing path can quarantine while demographics stays open.
 
@@ -59,13 +59,13 @@ Primary demo: healthcare forking pipeline (`raw -> staging -> mart_billing | mar
 | --- | --- |
 | Frontend | React 18, Vite, TypeScript, Tailwind, React Flow, Geist |
 | Backend | FastAPI, Pydantic, httpx, uvicorn |
-| Orchestrator | Deterministic closed-loop stages (`backend/agents/pipeline.py`) |
-| Agent runtime | [Google Antigravity SDK](https://github.com/google-antigravity/antigravity-sdk-python) (`google-antigravity`) for post-loop summary |
-| Models | Gemini via Vertex + ADC (`gemini-3.6-flash` default; `gemini-3.1-pro-preview` and other IDs configurable via `ANTIGRAVITY_MODELS`) |
+| Primary workforce | [Google Antigravity SDK](https://github.com/google-antigravity/antigravity-sdk-python) Agent + MidSphere custom tools (`backend/agents/stage_tools.py`) |
+| Fallback | Deterministic closed-loop stages (`backend/agents/pipeline.py`) |
+| Models | Gemini via Vertex + ADC (`gemini-3.6-flash` default; list via `ANTIGRAVITY_MODELS`) |
 | Catalog | DataHub GMS + official [mcp-server-datahub](https://github.com/acryldata/mcp-server-datahub) via `uvx` stdio |
 | Deploy | Vercel (`midsphere`) · GCP Cloud Run (`midsphere-api`) |
 
-Why Gemini with Antigravity: the Antigravity agent runtime is backed by Gemini on Vertex in this project. Antigravity is the agent harness; Gemini is the model family it calls. Model list is env-configurable, not hard-locked to a single SKU.
+Why Gemini with Antigravity: Antigravity is the agent harness; Gemini is the model family it calls on Vertex. The agent must invoke MidSphere tools to complete the job—not invent findings without tools.
 
 ## MCP tools (real names only)
 
@@ -75,7 +75,7 @@ Why Gemini with Antigravity: the Antigravity agent runtime is backed by Gemini o
 
 No invented `datahub_*` prefixes. No MCP `create_incident`.
 
-Telemetry honesty: live MCP attempts emit `TOOL` events; demo steps emit `STATUS` lines starting with `sim `. When GMS is offline, `execution_mode=demo_closed_loop` and `mutations_applied=false`.
+Telemetry honesty: Antigravity custom tools emit `TOOL` for `midsphere_*`; live MCP attempts emit real MCP tool names; deterministic demo steps emit `STATUS` lines starting with `sim `. Modes: `antigravity_closed_loop` | `demo_closed_loop` | `live_mcp`. Offline jobs set `mutations_applied=false`.
 
 ## Quick start
 

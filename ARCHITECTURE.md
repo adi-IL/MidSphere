@@ -97,8 +97,8 @@ Primary demo narrative (honest, dataset-native): **selective quality circuit-bre
                                   ▼
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │ MidSphere Orchestrator (FastAPI · backend/)                                  │
-│  · Job API · deterministic run_closed_loop stages · gate policy              │
-│  · Optional Antigravity Gemini summary AFTER the closed loop                 │
+│  · Job API · Antigravity primary workforce (midsphere_* tools) · gate policy │
+│  · Deterministic fallback when Agent disabled/fails                          │
 └─────────────────────────────────┬───────────────────────────────────────────┘
                                   │
         ┌─────────────────────────┼─────────────────────────┐
@@ -126,7 +126,7 @@ Primary demo narrative (honest, dataset-native): **selective quality circuit-bre
 | Surface | Stack | Deploy target | Rule |
 | --- | --- | --- | --- |
 | `frontend/` | React 18 · Vite · TypeScript · Tailwind | **Vercel only** | No FastAPI, no agent SDK |
-| `backend/` | Python 3.11+ · FastAPI · deterministic pipeline · optional Antigravity · MCP client | **GCP Cloud Run only** | No Vite tree, no frontend assets in image |
+| `backend/` | Python 3.11+ · FastAPI · Antigravity primary · deterministic fallback · MCP client | **GCP Cloud Run only** | No Vite tree, no frontend assets in image |
 | DataHub | Docker quickstart (local) / Cloud tenant (optional) | Local or remote GMS | Backend talks GMS via MCP env |
 
 Never mix package trees. Cloud Run images contain `backend/` only. Vercel deploys `frontend/` only.
@@ -138,8 +138,9 @@ Never mix package trees. Cloud Run images contain `backend/` only. Vercel deploy
 | Gemini / Vertex | Application Default Credentials via `gcloud auth application-default login` - **no hardcoded API keys** |
 | DataHub MCP | `DATAHUB_GMS_URL` + `DATAHUB_GMS_TOKEN` (or `~/.datahubenv`) |
 | Mutations | `TOOLS_IS_MUTATION_ENABLED=true` on the MCP server process MidSphere launches or connects to |
-| Closed loop | Deterministic stages in `run_closed_loop` (not five separate LLM agents) |
-| Optional summary | Antigravity + Vertex Gemini (`gemini-3.6-flash` default) after the loop |
+| Primary workforce | Antigravity Agent + five `midsphere_*` custom tools (`stage_tools.py`) |
+| Fallback | Deterministic `run_closed_loop_fallback` when Agent disabled/fails |
+| Models | Vertex Gemini via Antigravity (`gemini-3.6-flash` default; `ANTIGRAVITY_MODELS`) |
 | MCP | Official `mcp-server-datahub` via uvx stdio when `USE_OFFICIAL_MCP=true` |
 
 Billing project and credit balances live in ops notes (AGENTS.md), not in architecture claims judges must trust.
@@ -148,35 +149,39 @@ Billing project and credit balances live in ops notes (AGENTS.md), not in archit
 
 ## 4. Closed-loop stages (shipping)
 
-The job path is a **single deterministic orchestrator** (`agents/pipeline.py` -> `run_closed_loop`), not five separate LLM agent processes. Stage names appear in telemetry for the Command Center. Each stage emits a typed artifact the next stage consumes.
+Primary path: **one Google Antigravity Agent** with five MidSphere custom tools (`agents/stage_tools.py`). The agent decides when to call tools; tool bodies perform real stage work and accumulate `JobArtifact` state. Entry: `run_closed_loop` → `run_job_with_antigravity`.
 
-Optional: after the loop finishes, `enrich_job_with_antigravity` may call Google Antigravity + Vertex Gemini (`gemini-3.6-flash` by default) for an operator summary. That is the only default LLM call on the shipping path. Stages themselves use **no per-stage model**.
+Fallback: deterministic stages in `run_closed_loop_fallback` when `ANTIGRAVITY_ENABLED=false`, force-fallback, or Agent/Vertex failure. `execution_mode` labels the path honestly.
 
 ```
 POST /v1/jobs
     │
     ▼
-run_closed_loop (deterministic)
-    ContextSentinel  ──► AuditFinding[]
-    CascadeAnalyzer  ──► BlastRadiusMatrix + RiskScore
-    CircuitBreaker   ──► QuarantineReceipt (job-local; live MCP only if enabled+GMS)
-    FixArchitect     ──► FixBundle (dry-run path or live PR when wired)
-    MBOMEngine       ──► MBOM path / document URN
+run_closed_loop
     │
-    ▼
-optional Antigravity summary (gemini-3.6-flash)
+    ├─ PRIMARY (default): Antigravity Agent + Gemini
+    │     midsphere_context_sentinel_audit  ──► AuditFinding[]
+    │     midsphere_cascade_analyzer        ──► BlastRadius + RiskScore
+    │     midsphere_circuit_breaker_trip    ──► QuarantineReceipt
+    │     midsphere_fix_architect          ──► FixBundle
+    │     midsphere_mbom_engine             ──► MBOM path / document URN
+    │     → execution_mode=antigravity_closed_loop
+    │
+    └─ FALLBACK: deterministic stages
+          ContextSentinel → Cascade → Breaker → Fix → MBOM
+          → execution_mode=demo_closed_loop | live_mcp
     │
     ▼
 JobArtifact JSON + SSE/UI telemetry
 ```
 
-Telemetry honesty: `TOOL` / `WRITE` only after a real MCP attempt. Offline demo steps use `STATUS` lines prefixed with `sim `.
+Telemetry honesty: Antigravity path emits `TOOL` for `midsphere_*` custom tools. Live MCP uses real unprefixed names. Offline demo steps use `STATUS` lines prefixed with `sim `.
 
 ### 4.1 ContextSentinel - auditor
 
 | | |
 | --- | --- |
-| **Implementation** | Deterministic stage in `run_closed_loop` (no LLM) |
+| **Implementation** | Primary: `midsphere_context_sentinel_audit` tool body; fallback: deterministic stage |
 | **Role** | Detect quality / governance / (optional) ML-path anomalies on target entities |
 | **MCP (read, when live)** | `search`, `get_entities`, `list_schema_fields`, `get_lineage`, `get_lineage_paths_between`, `get_dataset_queries` |
 | **Outputs** | Structured `AuditFinding[]`: type, severity, evidence URNs, column paths, rationale |
@@ -198,7 +203,7 @@ Do **not** claim target leakage on stock healthcare packs-they do not include pl
 
 | | |
 | --- | --- |
-| **Implementation** | Deterministic stage in `run_closed_loop` (no LLM) |
+| **Implementation** | Primary: midsphere_* tool body; fallback: deterministic stage |
 | **Role** | Expand downstream lineage; compute selective impact |
 | **MCP (read, when live)** | `get_lineage` (downstream, multi-hop), `get_entities`, `search` |
 | **Outputs** | `BlastRadiusMatrix`, `risk_score` ∈ [0, 100], per-node impact tags |
@@ -230,7 +235,7 @@ Publish the formula in README so judges can audit it.
 
 | | |
 | --- | --- |
-| **Implementation** | Deterministic stage in `run_closed_loop` (no LLM) |
+| **Implementation** | Primary: midsphere_* tool body; fallback: deterministic stage |
 | **Role** | Apply **advisory** quarantine state on selected URNs |
 | **MCP (write, when live)** | Requires official MCP + `TOOLS_IS_MUTATION_ENABLED=true` + reachable GMS |
 | | `add_tags` / `remove_tags` |
@@ -269,7 +274,7 @@ mutation {
 
 | | |
 | --- | --- |
-| **Implementation** | Deterministic stage (shipping: dry-run fix path under `examples/prs/`) |
+| **Implementation** | Primary: `midsphere_fix_architect`; fallback: dry-run path under `examples/prs/` |
 | **Role** | Produce mergeable fix artifacts grounded in catalog context |
 | **MCP (read, when live)** | `get_dataset_queries`, `list_schema_fields`, `get_entities`, `get_lineage` |
 | **External** | Optional GitHub API for real PRs when token present; else dry-run |
@@ -286,21 +291,21 @@ mutation {
 
 | | |
 | --- | --- |
-| **Implementation** | Deterministic stage; live `save_document` only when official MCP mutations succeed |
+| **Implementation** | Primary: `midsphere_mbom_engine`; fallback + live `save_document` when MCP mutations succeed |
 | **Role** | Persist durable knowledge so future agents inherit the audit |
 | **MCP (write, when live)** | `save_document` (mutations enabled + GMS up) |
 | **Offline** | Job-local MBOM path under `examples/mboms/` with document URN placeholder |
 | **Outputs** | Document URN and/or path + `related_assets` linking target datasets |
 
-### 4.6 Optional Antigravity summary (only LLM on default path)
+### 4.6 Antigravity primary workforce
 
 | | |
 | --- | --- |
-| **Implementation** | `agents/antigravity_runner.py` after `run_closed_loop` |
-| **Summary model** | `gemini-3.6-flash` (default); fallbacks via `ANTIGRAVITY_MODELS` |
-| **Not used for** | Sentinel, Cascade, Breaker, Fix, or MBOM stage logic (those are deterministic) |
-| **When** | `ANTIGRAVITY_ENABLED=true` and Vertex ADC can reach the model |
-| **On failure** | Job still succeeds; telemetry records unavailability; no fake summary |
+| **Implementation** | `agents/antigravity_runner.py` → `run_job_with_antigravity` |
+| **Tools** | Five `midsphere_*` callables on `LocalAgentConfig(tools=...)` |
+| **Models** | `gemini-3.6-flash` (default); fallbacks via `ANTIGRAVITY_MODELS` |
+| **When** | `ANTIGRAVITY_ENABLED=true` (default) and Vertex ADC can reach a model |
+| **On failure** | Falls back to deterministic closed loop; telemetry records the error |
 
 **MBOM document contract:**
 
@@ -518,8 +523,9 @@ midsphere/   # or repo root
 
 | Layer | Library / service | Notes |
 | --- | --- | --- |
-| Closed loop | `agents/pipeline.py` `run_closed_loop` | Deterministic stages; no per-stage LLM |
-| Optional LLM summary | `google-antigravity` + Vertex Gemini | Default `gemini-3.6-flash` after the loop; see `antigravity_runner.py` |
+| Primary workforce | `google-antigravity` Agent + `stage_tools.py` | Five midsphere_* tools; Gemini on Vertex |
+| Fallback | `run_closed_loop_fallback` | Deterministic stages when Agent unavailable |
+| Entry | `agents/pipeline.py` `run_closed_loop` | Antigravity first, then fallback |
 | API | FastAPI | Jobs, gate, health |
 | MCP | Official `mcp-server-datahub` via `uvx` stdio | `midsphere_mcp/official.py`; mutations opt-in |
 | GMS probe | httpx | Reachability helper in `midsphere_mcp/client.py` |

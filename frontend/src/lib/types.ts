@@ -53,7 +53,7 @@ export interface JobArtifact {
   pr: { status: string; path?: string; url?: string; diff_summary?: string } | null;
   mbom: { path?: string; document_urn?: string; related_assets?: string[] } | null;
   events: JobEvent[];
-  execution_mode?: "demo_closed_loop" | "live_mcp";
+  execution_mode?: "demo_closed_loop" | "live_mcp" | "antigravity_closed_loop";
   mutations_applied?: boolean;
   datahub_reachable?: boolean;
   gate_policy?: string;

@@ -1,12 +1,13 @@
-"""MidSphere closed-loop runner: audit → blast → quarantine → fix → MBOM.
+"""MidSphere closed-loop runner.
 
-Deterministic orchestrator stages (Sentinel → Cascade → Breaker → Fix → MBOM).
-Optional: official mcp-server-datahub tool calls when USE_OFFICIAL_MCP=true and GMS is up.
-Optional: one Antigravity/Gemini operator summary after the loop.
+Primary workforce: Google Antigravity Agent with custom MidSphere stage tools
+(+ optional official DataHub MCP). See agents/antigravity_runner.py.
+
+Fallback: deterministic stages below when Antigravity is disabled or fails.
 
 Telemetry honesty:
-- kind TOOL / WRITE only after a real MCP (or GMS) attempt
-- kind STATUS with prefix 'sim ' for deterministic demo steps that did not call MCP
+- Antigravity path emits TOOL lines for custom tools the agent invoked
+- Deterministic fallback uses STATUS lines prefixed with 'sim ' when offline
 """
 
 from __future__ import annotations
@@ -42,7 +43,18 @@ _TOOL_TOKEN_RE = re.compile(
     r"\b(get_lineage|list_schema_fields|get_entities|search|get_dataset_queries|"
     r"add_tags|remove_tags|add_structured_properties|remove_structured_properties|"
     r"save_document|update_description|get_lineage_paths_between|search_documents|"
-    r"datahub_\w+|create_incident)\b"
+    r"midsphere_\w+|datahub_\w+|create_incident)\b"
+)
+
+# Custom tools registered on the Antigravity Agent (not DataHub MCP)
+MIDSPHERE_CUSTOM_TOOLS = frozenset(
+    {
+        "midsphere_context_sentinel_audit",
+        "midsphere_cascade_analyzer",
+        "midsphere_circuit_breaker_trip",
+        "midsphere_fix_architect",
+        "midsphere_mbom_engine",
+    }
 )
 
 
@@ -83,11 +95,16 @@ def extract_tool_names_from_events(events: list[JobEvent]) -> list[str]:
 
 
 def assert_telemetry_mcp_clean(events: list[JobEvent]) -> None:
+    """Allow official MCP tools and MidSphere custom tools; reject invented names."""
     for name in extract_tool_names_from_events(events):
         if name.startswith("datahub_") or name == "create_incident":
             raise AssertionError(f"Forbidden tool name in telemetry: {name}")
-        if name not in REAL_MCP_TOOLS:
-            raise AssertionError(f"Unknown/non-MCP tool token in telemetry: {name}")
+        if name in REAL_MCP_TOOLS or name in MIDSPHERE_CUSTOM_TOOLS:
+            continue
+        if name.startswith("midsphere_"):
+            # Forward-compatible custom tool prefix
+            continue
+        raise AssertionError(f"Unknown/non-MCP tool token in telemetry: {name}")
 
 
 def run_closed_loop(
@@ -95,6 +112,37 @@ def run_closed_loop(
     mode: str = "full",
     auto_trip: bool = True,
     client: McpClient | None = None,
+) -> JobArtifact:
+    """Primary entry: Antigravity workforce first, deterministic fallback second."""
+    antigravity_error: BaseException | None = None
+    try:
+        from agents.antigravity_runner import antigravity_enabled, run_job_with_antigravity
+
+        if antigravity_enabled() and os.environ.get("ANTIGRAVITY_FORCE_FALLBACK", "").lower() not in (
+            "1",
+            "true",
+            "yes",
+        ):
+            job = run_job_with_antigravity(root_urn, mode=mode, auto_trip=auto_trip)
+            assert_telemetry_mcp_clean(job.events)
+            return job
+    except Exception as exc:  # noqa: BLE001
+        antigravity_error = exc
+    return run_closed_loop_fallback(
+        root_urn,
+        mode=mode,
+        auto_trip=auto_trip,
+        client=client,
+        antigravity_error=antigravity_error,
+    )
+
+
+def run_closed_loop_fallback(
+    root_urn: str,
+    mode: str = "full",
+    auto_trip: bool = True,
+    client: McpClient | None = None,
+    antigravity_error: BaseException | None = None,
 ) -> JobArtifact:
     job_id = str(uuid.uuid4())
     events: list[JobEvent] = []
@@ -116,10 +164,21 @@ def run_closed_loop(
         )
         mcp.record_tool(tool)
 
+    if antigravity_error is not None:
+        emit(
+            "ContextSentinel",
+            "ERROR",
+            f"antigravity primary failed: {type(antigravity_error).__name__}: {str(antigravity_error)[:240]}",
+        )
+        emit(
+            "ContextSentinel",
+            "STATUS",
+            "falling back to deterministic closed loop",
+        )
     emit(
         "ContextSentinel",
         "STATUS",
-        f"stage=ContextSentinel orchestrator=deterministic gms_reachable={probe.reachable}",
+        f"stage=ContextSentinel orchestrator=deterministic_fallback gms_reachable={probe.reachable}",
     )
     emit(
         "ContextSentinel",
@@ -547,20 +606,6 @@ def run_closed_loop(
     )
 
     assert_telemetry_mcp_clean(job.events)
-
-    try:
-        from agents.antigravity_runner import enrich_job_with_antigravity
-
-        job = enrich_job_with_antigravity(job)
-    except Exception as exc:  # noqa: BLE001
-        job.events.append(
-            JobEvent(
-                ts=_ts(),
-                agent="ContextSentinel",
-                kind="ERROR",
-                message=f"antigravity import/run error: {type(exc).__name__}: {str(exc)[:200]}",
-            )
-        )
 
     return job
 

@@ -104,3 +104,54 @@ def test_dry_run_skips_quarantine():
     assert job.quarantine is None
     decision = evaluate_from_job(URN_BILLING, job)
     assert decision.status == "OPEN"
+
+
+def test_stage_tools_builder_antigravity_path():
+    """Custom tools produce a complete antigravity_closed_loop artifact."""
+    from agents.stage_tools import MidSphereJobBuilder
+    from models.artifacts import JobEvent
+
+    b = MidSphereJobBuilder(root_urn=ROOT, mode="full", auto_trip=True)
+    b.midsphere_context_sentinel_audit(ROOT)
+    b.midsphere_cascade_analyzer(max_hops=2)
+    b.midsphere_circuit_breaker_trip(True)
+    b.midsphere_fix_architect()
+    b.midsphere_mbom_engine()
+    job = b.to_job(execution_mode="antigravity_closed_loop")
+
+    assert job.status == "succeeded"
+    assert job.execution_mode == "antigravity_closed_loop"
+    assert job.findings
+    assert job.quarantine is not None
+    assert URN_BILLING in job.quarantine.entityUrns
+    assert URN_DEMOGRAPHICS not in job.quarantine.entityUrns
+    assert job.pr is not None and job.mbom is not None
+
+    tools = extract_tool_names_from_events(job.events)
+    assert "midsphere_context_sentinel_audit" in tools
+    assert "midsphere_cascade_analyzer" in tools
+    assert "midsphere_circuit_breaker_trip" in tools
+    assert "midsphere_fix_architect" in tools
+    assert "midsphere_mbom_engine" in tools
+    assert_telemetry_mcp_clean(job.events)
+
+    # ensure_complete_fallback is idempotent when stages already ran
+    b2 = MidSphereJobBuilder(root_urn=ROOT, mode="full", auto_trip=True)
+    job2 = b2.to_job()  # no tools called — ensure_complete fills stages
+    assert job2.findings and job2.quarantine
+    assert_telemetry_mcp_clean(job2.events)
+
+    # Forbidden invented names still fail
+    bad = [
+        JobEvent(
+            ts="00:00:00.000",
+            agent="ContextSentinel",
+            kind="TOOL",
+            message="datahub_get_lineage fake",
+        )
+    ]
+    try:
+        assert_telemetry_mcp_clean(bad)
+        raise AssertionError("expected forbidden tool to raise")
+    except AssertionError as exc:
+        assert "Forbidden" in str(exc) or "datahub_" in str(exc)

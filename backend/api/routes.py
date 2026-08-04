@@ -69,9 +69,10 @@ def health() -> dict:
         "official_mcp": official,
         "stack": {
             "fastapi": True,
-            "orchestrator": "deterministic closed-loop stages",
-            "antigravity_summary": os.environ.get("ANTIGRAVITY_ENABLED", "true"),
-            "gemini_summary_model": os.environ.get(
+            "orchestrator": "antigravity primary + deterministic fallback",
+            "primary_workforce": "google-antigravity Agent with midsphere_* stage tools",
+            "antigravity_enabled": os.environ.get("ANTIGRAVITY_ENABLED", "true"),
+            "gemini_models": os.environ.get(
                 "ANTIGRAVITY_MODELS", "gemini-3.6-flash"
             ).split(",")[0],
             "mcp_server": "official mcp-server-datahub via uvx stdio when USE_OFFICIAL_MCP=true",
