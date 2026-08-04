@@ -111,10 +111,13 @@ export function LineageCanvas({ nodes, selectedUrn, onSelect }: Props) {
 
   return (
     <div className="h-full w-full bg-canvas">
-      <div className="pointer-events-none absolute left-4 top-4 z-10 rounded-md border border-line bg-panel/95 px-3 py-2 text-2xs text-mute backdrop-blur">
+      <div className="pointer-events-none absolute left-4 top-4 z-10 rounded-md border border-line bg-panel/95 px-3 py-2 font-mono text-[10px] uppercase tracking-wide text-mute backdrop-blur">
         Lineage ·{" "}
-        <span className="text-good">open</span> ·{" "}
-        <span className="text-bad">selective quarantine</span>
+        <span className="normal-case tracking-normal text-good">open</span>
+        {" · "}
+        <span className="normal-case tracking-normal text-bad">
+          selective quarantine
+        </span>
       </div>
       <ReactFlow
         nodes={flowNodes}

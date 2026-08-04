@@ -25,19 +25,39 @@ const TABS: { id: Tab; label: string }[] = [
 export function InspectorDrawer({ job, selectedUrn, tab, onTab }: Props) {
   const node = job.blast_radius.nodes.find((n) => n.urn === selectedUrn);
   const gate = job.quarantine?.gateStatus ?? "OPEN";
+  const nodeBlocked =
+    Boolean(node?.impacted) &&
+    gate === "BLOCKED" &&
+    Boolean(job.quarantine?.entityUrns.includes(node?.urn ?? ""));
 
   return (
     <aside className="flex w-[380px] shrink-0 flex-col border-l border-line bg-panel">
-      <div className="border-b border-line p-3">
-        <div className="text-2xs uppercase tracking-wide text-faint">
-          Inspector
+      <div className="shrink-0 border-b border-line p-3">
+        <div className="flex items-center justify-between gap-2">
+          <div className="font-mono text-[10px] uppercase tracking-widest text-faint">
+            Inspector
+          </div>
+          {node && (
+            <span
+              className={`rounded border px-1.5 py-0.5 font-mono text-[10px] uppercase ${
+                node.impacted
+                  ? "border-bad/30 text-bad"
+                  : "border-good/30 text-good"
+              }`}
+            >
+              {node.impacted ? "impacted" : "open"}
+            </span>
+          )}
         </div>
         <div className="mt-1 text-sm font-medium tracking-tight text-ink">
           {node?.name ?? "Select a node"}
         </div>
-        <div className="mt-1 truncate font-mono text-2xs text-mute">
+        <div className="mt-1 truncate font-mono text-2xs text-mute" title={selectedUrn ?? undefined}>
           {selectedUrn}
         </div>
+        {node?.reason && (
+          <p className="mt-1.5 text-2xs leading-relaxed text-faint">{node.reason}</p>
+        )}
         <div className="mt-3">
           <RiskScorecard
             score={job.blast_radius.risk_score}
@@ -47,13 +67,13 @@ export function InspectorDrawer({ job, selectedUrn, tab, onTab }: Props) {
         </div>
       </div>
 
-      <div className="flex gap-0.5 overflow-x-auto border-b border-line px-2 py-1.5">
+      <div className="flex shrink-0 gap-0.5 overflow-x-auto border-b border-line px-2 py-1.5">
         {TABS.map((t) => (
           <button
             key={t.id}
             type="button"
             onClick={() => onTab(t.id)}
-            className={`rounded px-2 py-1 text-2xs ${
+            className={`rounded px-2 py-1 font-mono text-[10px] uppercase tracking-wide ${
               tab === t.id
                 ? "bg-elevated text-ink"
                 : "text-mute hover:text-ink"
@@ -87,18 +107,51 @@ export function InspectorDrawer({ job, selectedUrn, tab, onTab }: Props) {
           <div className="space-y-3">
             <GatePreview
               status={
-                node?.impacted && gate === "BLOCKED" ? "BLOCKED" : "OPEN"
+                nodeBlocked
+                  ? "BLOCKED"
+                  : gate === "LIFTED" && node?.impacted
+                    ? "LIFTED"
+                    : "OPEN"
               }
-              tags={job.quarantine?.tagsApplied ?? []}
-              properties={job.quarantine?.properties ?? {}}
+              tags={nodeBlocked ? (job.quarantine?.tagsApplied ?? []) : []}
+              properties={
+                nodeBlocked ? (job.quarantine?.properties ?? {}) : {}
+              }
             />
+            {!nodeBlocked && node && (
+              <p className="text-2xs leading-relaxed text-faint">
+                {node.impacted
+                  ? "On the blast path, but not in the selective quarantine set (only gated entities are BLOCKED)."
+                  : "Selective halt: this fork is outside the quarantine set for the current findings."}
+              </p>
+            )}
           </div>
         )}
 
         {tab === "fix" && (
-          <pre className="overflow-x-auto rounded-md border border-line bg-canvas p-3 font-mono text-2xs leading-relaxed text-mute">
-            {DEMO_DIFF}
-          </pre>
+          <div className="space-y-2">
+            {job.pr && (
+              <div className="rounded-md border border-line bg-canvas px-3 py-2 font-mono text-2xs text-mute">
+                <div className="text-faint">status</div>
+                <div className="text-ink">{job.pr.status}</div>
+                {job.pr.path && (
+                  <>
+                    <div className="mt-1 text-faint">path</div>
+                    <div className="break-all text-ink">{job.pr.path}</div>
+                  </>
+                )}
+                {job.pr.diff_summary && (
+                  <>
+                    <div className="mt-1 text-faint">summary</div>
+                    <div className="text-ink">{job.pr.diff_summary}</div>
+                  </>
+                )}
+              </div>
+            )}
+            <pre className="overflow-x-auto rounded-md border border-line bg-canvas p-3 font-mono text-2xs leading-relaxed text-mute">
+              {DEMO_DIFF}
+            </pre>
+          </div>
         )}
 
         {tab === "mbom" && (
@@ -111,6 +164,9 @@ export function InspectorDrawer({ job, selectedUrn, tab, onTab }: Props) {
                 {job.mbom.document_urn}
               </p>
             )}
+            {job.mbom?.path && (
+              <p className="mt-1 font-mono text-2xs text-faint">{job.mbom.path}</p>
+            )}
           </article>
         )}
 
@@ -121,16 +177,28 @@ export function InspectorDrawer({ job, selectedUrn, tab, onTab }: Props) {
         )}
       </div>
 
-      <div className="flex gap-2 border-t border-line p-3">
+      <div className="flex shrink-0 gap-2 border-t border-line p-3">
         <button
           type="button"
-          className="flex-1 rounded-md border border-line2 bg-elevated py-2 text-2xs font-medium text-ink"
+          disabled={Boolean(job.quarantine)}
+          title={
+            job.quarantine
+              ? "Circuit already tripped for this job"
+              : "Trip requires a full scan with auto_trip"
+          }
+          className="flex-1 rounded-md border border-line2 bg-elevated py-2 text-2xs font-medium text-ink disabled:cursor-not-allowed disabled:opacity-40"
         >
           Trip circuit
         </button>
         <button
           type="button"
-          className="flex-1 rounded-md border border-line py-2 text-2xs font-medium text-mute"
+          disabled={!job.quarantine || gate === "LIFTED"}
+          title={
+            !job.quarantine
+              ? "No active quarantine on this job"
+              : "Lift clears advisory quarantine for gated entities"
+          }
+          className="flex-1 rounded-md border border-line py-2 text-2xs font-medium text-mute disabled:cursor-not-allowed disabled:opacity-40 hover:enabled:text-ink"
         >
           Lift quarantine
         </button>
