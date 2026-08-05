@@ -79,13 +79,23 @@ Do **not** put model/vendor names in chrome. Stack details live in Raw / System 
 - Open nodes: quiet border, label `open`
 - Selective fork must remain readable (billing vs demographics)
 
-## 7. Stack
+## 7. Brand assets
+
+| Asset | File | Use |
+| --- | --- | --- |
+| Favicon / app icon | `frontend/public/favicon.*`, `icon-*.png`, `logo-mark.png` | Browser tab, PWA icons, TopBar mark (sphere only) |
+| Full logo | `frontend/public/logo.png` (+ `logo-sm.png`) | Boot shell, LoadingScreen, OG preview |
+| Social | `frontend/public/og-image.png` | Open Graph / Twitter cards |
+
+Do not replace the wordmark with inventing alternate product names in chrome.
+
+## 8. Stack
 
 React 18, Vite, TypeScript, Tailwind, React Flow, lucide-react (minimal), react-markdown.
 
 Deploy: Vercel project `midsphere` from `frontend/` only.
 
-## 8. Accessibility
+## 9. Accessibility
 
 - WCAG AA contrast on monochrome surfaces
 - Visible focus rings

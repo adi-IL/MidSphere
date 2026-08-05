@@ -8,6 +8,23 @@
       name="description"
       content="MidSphere: autonomous context circuit-breaker for DataHub"
     />
+    <meta name="theme-color" content="#000000" />
+    <!-- Favicon: circuit-sphere mark (icon only) -->
+    <link rel="icon" href="/favicon.ico" sizes="any" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <!-- Social / link preview: full MidSphere logo -->
+    <meta property="og:title" content="MidSphere" />
+    <meta
+      property="og:description"
+      content="Autonomous context circuit-breaker engine for data platforms"
+    />
+    <meta property="og:image" content="/og-image.png" />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:image" content="/og-image.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -22,23 +39,19 @@
         id="boot-shell"
         style="
           display:flex;flex-direction:column;align-items:center;justify-content:center;
-          height:100vh;gap:12px;letter-spacing:-0.02em;
+          height:100vh;gap:0;letter-spacing:-0.02em;
         "
       >
+        <img
+          src="/logo-sm.png"
+          alt="MidSphere"
+          width="220"
+          height="220"
+          style="width:min(220px,56vw);height:auto;display:block"
+        />
         <div
           style="
-            width:48px;height:48px;border:1px solid #262626;border-radius:6px;
-            background:#111;display:flex;align-items:center;justify-content:center;
-            font-size:14px;font-weight:500;
-          "
-        >
-          M
-        </div>
-        <div style="font-size:15px;font-weight:500">MidSphere</div>
-        <div style="font-size:11px;color:#888">Context circuit-breaker for DataHub</div>
-        <div
-          style="
-            margin-top:12px;width:160px;height:1px;background:#1a1a1a;overflow:hidden;
+            margin-top:20px;width:160px;height:1px;background:#1a1a1a;overflow:hidden;
             border-radius:999px;
           "
         >
@@ -49,7 +62,7 @@
             "
           ></div>
         </div>
-        <div style="font-family:ui-monospace,monospace;font-size:10px;color:#666;letter-spacing:0.12em;text-transform:uppercase">
+        <div style="margin-top:14px;font-family:ui-monospace,monospace;font-size:10px;color:#666;letter-spacing:0.12em;text-transform:uppercase">
           Loading…
         </div>
       </div>
@@ -66,4 +79,3 @@
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
-

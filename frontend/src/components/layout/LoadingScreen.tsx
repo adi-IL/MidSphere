@@ -29,24 +29,21 @@ export function LoadingScreen({ status = "Initializing Command Center…" }: Pro
       />
 
       <div className="relative z-10 flex w-full max-w-sm flex-col items-center px-6">
-        {/* Mark */}
-        <div className="relative mb-6 flex h-12 w-12 items-center justify-center">
-          <span className="absolute inset-0 rounded-md border border-line2 bg-elevated" />
-          <span className="absolute inset-[-4px] rounded-lg border border-line/60 load-ring" />
-          <span className="relative text-sm font-medium tracking-tight text-ink">
-            M
-          </span>
+        {/* Full project logo (wordmark + circuit sphere) */}
+        <div className="relative mb-2 flex items-center justify-center">
+          <span className="absolute inset-[-10px] rounded-full border border-line/40 load-ring" />
+          <img
+            src="/logo-sm.png"
+            alt="MidSphere"
+            width={200}
+            height={200}
+            className="relative h-auto w-[min(200px,58vw)] select-none object-contain"
+            draggable={false}
+          />
         </div>
 
-        <h1 className="text-base font-medium tracking-tight text-ink">
-          MidSphere
-        </h1>
-        <p className="mt-1 text-center text-2xs text-mute">
-          Context circuit-breaker for DataHub
-        </p>
-
         {/* Progress bar */}
-        <div className="mt-8 h-px w-40 overflow-hidden rounded-full bg-line2">
+        <div className="mt-6 h-px w-40 overflow-hidden rounded-full bg-line2">
           <div className="load-bar h-full w-1/2 bg-ink/80" />
         </div>
 

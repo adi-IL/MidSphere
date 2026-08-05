@@ -18,10 +18,12 @@ frontend/
 │   ├── lib/                    # api.ts, demoJob.ts, types.ts
 │   ├── index.css
 │   └── main.tsx
+├── public/                     # favicon (sphere mark), logo.png (full brand), OG image
 ├── vercel.json                 # vite + SPA rewrites; git.deploymentEnabled=false
 ├── package.json
 └── vite.config.ts
 ```
+
 
 ## Design authority
 

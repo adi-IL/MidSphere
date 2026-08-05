@@ -21,10 +21,15 @@ export function TopBar({
 }: Props) {
   return (
     <header className="flex h-12 shrink-0 items-center justify-between border-b border-line bg-canvas px-4">
-      <div className="flex min-w-0 items-center gap-3">
-        <div className="flex h-6 w-6 items-center justify-center rounded-sm border border-line2 bg-elevated text-[10px] font-medium tracking-tight text-ink">
-          M
-        </div>
+      <div className="flex min-w-0 items-center gap-2.5">
+        <img
+          src="/logo-mark.png"
+          alt=""
+          width={28}
+          height={28}
+          className="h-7 w-7 shrink-0 rounded-sm object-contain"
+          aria-hidden
+        />
         <div className="min-w-0">
           <div className="text-sm font-medium tracking-tight text-ink">
             MidSphere
