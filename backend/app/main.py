@@ -6,8 +6,8 @@ from app.settings import get_settings
 
 
 def create_app() -> FastAPI:
-    import os
-    os.environ["ANTIGRAVITY_FORCE_FALLBACK"] = "true"
+    # Do not hardcode ANTIGRAVITY_FORCE_FALLBACK. Primary path is Antigravity
+    # unless the operator sets ANTIGRAVITY_FORCE_FALLBACK=true or ANTIGRAVITY_ENABLED=false.
     settings = get_settings()
 
     app = FastAPI(

@@ -53,6 +53,10 @@ Shipping path: **Google Antigravity is the primary workforce**. One Agent receiv
 
 Primary demo: healthcare forking pipeline (`raw -> staging -> mart_billing | mart_demographics`). Selective halt: billing path can quarantine while demographics stays open.
 
+Also demos: ecommerce PII path and NYC taxi freshness/schema-drift path (same closed loop, selective open forks). Command Center includes **Forensic Time Travel** — a five-step scrubber of the closed-loop story (not a live GMS history browser). See `docs/FORENSIC_TIME_TRAVEL.md`.
+
+**Honesty:** Job field `execution_mode` is ground truth (`antigravity_closed_loop` | `demo_closed_loop` | `live_mcp`). Health may list env flags; offline or mutation-disabled runs set `mutations_applied=false` and never invent live MCP success.
+
 ## Stack (shipping)
 
 | Layer | Technology |

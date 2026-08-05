@@ -1,43 +1,74 @@
 # MidSphere Forensic Time Travel Mode
 
+## Punchline
+
+**Scrub the closed loop — not the warehouse clock.** Forensic Time Travel is an operator narrative of how contamination spreads and how MidSphere selectively trips the context circuit.
+
+It is **not** a live DataHub history browser and **not** proof that tags were written to GMS on every frame.
+
+---
+
 ## Overview
 
-**Forensic Time Travel Mode** transforms MidSphere from a static lineage diagram into an interactive, time-aware forensic investigation tool for DataHub.
+The Command Center lineage canvas can show more than a single snapshot. The **Forensic Time Travel** controller (`TimeTravelBar.tsx`) lets operators scrub a five-step story:
 
-Instead of displaying only the instantaneous state of a data pipeline, the Forensic Time Travel controller (`TimeTravelBar.tsx`) allows data engineers, security auditors, and pipeline operators to scrub through time, watch contamination spread frame-by-frame across downstream lineage hops, inspect the exact moment a circuit breaker tripped, and verify selective quarantine decisions.
+1. Healthy baseline  
+2. Audit finding on the source  
+3. Cascade / blast radius  
+4. Selective circuit trip (target mart **BLOCKED**, open fork **OPEN**)  
+5. Fix artifact + MBOM attestation ready  
+
+Use it to explain **selective halt** to judges and operators in under a minute.
 
 ---
 
 ## Time Travel Step Architecture
 
 ```
-[09:20 Baseline] ────► [09:24 Sentinel] ────► [09:28 Cascade] ────► [09:31 Circuit] ────► [09:35 Attested]
-     Step 0                 Step 1                Step 2               Step 3               Step 4
+[Baseline] ──► [Sentinel] ──► [Cascade] ──► [Circuit] ──► [Attested]
+   T-0            T-1            T-2           T-3           T-4
 ```
 
-| Time Step | Timestamp | Active Swarm Stage | Graph & Gate State | Description |
-| --- | --- | --- | --- | --- |
-| **`T-0`** | `09:20:00` | **Pre-Incident Baseline** | All Nodes: `● OPEN`<br>Risk Score: `0`<br>Edges: `Clean Flow` | Healthy pre-incident baseline state. All tables operating within SLA SLAs. |
-| **`T-1`** | `09:24:12` | **ContextSentinel** | Ingestion Source: `● IMPACTED`<br>Risk Score: `88`<br>Edges: `PII Exposure` | Audit finding triggered on ingestion source (e.g. `raw_patients`, `raw_customers`, `raw_yellow_trips`). |
-| **`T-2`** | `09:28:45` | **CascadeAnalyzer** | Hop 0 + Hop 1: `● IMPACTED`<br>Blast Radius: Calculated | Contamination ripples downstream into dbt staging models (`staging_patients`, `stg_customers`, `stg_trip_fare`). |
-| **`T-3`** | `09:31:02` | **CircuitBreaker** | Target Mart: `⛔ BLOCKED`<br>Unaffected Fork: `● OPEN` | Advisory quarantine applied. `QUARANTINED` & `CIRCUIT_BROKEN` tags published to DataHub. Consumer Gate sets `midsphere.gate_status = BLOCKED`. |
-| **`T-4`** | `09:35:10` | **FixArchitect & MBOMEngine** | Remediation: Ready<br>Attestation: Published | Automated dbt SQL fix diff generated; MBOM audit attestation document registered in DataHub via `save_document`. |
+| Step | Stage | Graph & gate story |
+| --- | --- | --- |
+| **T-0** | Pre-incident baseline | All nodes **OPEN**, risk 0, calm edges |
+| **T-1** | ContextSentinel | Source **IMPACTED** (quality / PII / freshness finding) |
+| **T-2** | CascadeAnalyzer | Downstream hops impacted; selective fork still open |
+| **T-3** | CircuitBreaker | Target mart **BLOCKED** (advisory); open fork stays **OPEN** |
+| **T-4** | Fix + MBOM | Dry-run fix path + MBOM attestation artifact ready |
+
+Timestamps in the UI are **story labels** for the closed-loop narrative, not GMS event-store times.
 
 ---
 
-## Selective Circuit Breaking
+## Selective circuit breaking (the product truth)
 
-During **Step 3** (`09:31:02 CircuitBreaker`), MidSphere demonstrates **Selective Circuit Breaking**:
+At **T-3**:
 
-- **Quarantined Path:** Contaminated marts (e.g., `mart_billing` or `mart_customer_360`) are set to `BLOCKED`. Downstream BI dashboards and APIs checking `GET /v1/gate/{urn}` receive `BLOCKED` status and refuse execution.
-- **Open Lineage Fork:** Unaffected tables on separate lineage forks (e.g., `mart_demographics` or `mart_product_catalog`) remain **OPEN** with zero risk score, allowing unaffected business operations to continue running without interruption.
+- **Quarantined path:** Contaminated mart (e.g. `mart_billing`, `mart_customer_360`, `mart_monthly_revenue`) is treated as **BLOCKED** for MidSphere Consumer Gate clients.
+- **Open fork:** Unaffected marts (e.g. `mart_demographics`, `mart_product_catalog`, `mart_trip_distance_stats`) remain **OPEN**.
+
+This is **selective halt**, not a panic quarantine of the whole graph.
 
 ---
 
-## DataHub MCP Integration
+## Honesty contract (DataHub MCP)
 
-Forensic Time Travel decisions are fully synchronized with the official DataHub MCP server (`uvx mcp-server-datahub@latest`):
+| Claim | When true |
+| --- | --- |
+| Live `add_tags` / structured properties / `save_document` | GMS reachable **and** `TOOLS_IS_MUTATION_ENABLED=true` on the official MCP process |
+| Job-local advisory quarantine only | GMS offline or mutations off → `mutations_applied=false`, `execution_mode=demo_closed_loop` or Antigravity with no live writes |
+| Forensic scrubber | Always a **Command Center UX** over the MidSphere closed-loop story |
 
-1. **Tag Writing:** `add_tags` applies `urn:li:tag:QUARANTINED` and `urn:li:tag:CIRCUIT_BROKEN` to target entities.
-2. **Structured Property Mutation:** `add_structured_properties` sets `midsphere.gate_status = BLOCKED` / `LIFTED`.
-3. **Attestation Publishing:** `save_document` registers the MBOM attestation markdown artifact in DataHub's context graph.
+**Allowed:** “MidSphere writes advisory quarantine metadata when mutations are enabled.”  
+**Forbidden:** “MCP blocks all agents from reading quarantined entities.”
+
+Real MCP tool names only: `get_lineage`, `add_tags`, `save_document`, etc. No invented `datahub_*` prefixes.
+
+---
+
+## Related
+
+- Closed loop: `backend/agents/pipeline.py`, `backend/agents/stage_tools.py`
+- UI: `frontend/src/components/graph/TimeTravelBar.tsx`, `LineageCanvas.tsx`
+- Gate: `GET /v1/gate/{urn}`

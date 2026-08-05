@@ -99,6 +99,9 @@ def health() -> dict:
         "gate_policy": GATE_POLICY,
         "mutations_env": probe.mutations_enabled,
         "antigravity": os.environ.get("ANTIGRAVITY_ENABLED", "true"),
+        "antigravity_force_fallback": os.environ.get(
+            "ANTIGRAVITY_FORCE_FALLBACK", "false"
+        ),
         "use_official_mcp": os.environ.get("USE_OFFICIAL_MCP", "true"),
         "official_mcp": official,
         "stack": {
@@ -106,11 +109,18 @@ def health() -> dict:
             "orchestrator": "antigravity primary + deterministic fallback",
             "primary_workforce": "google-antigravity Agent with midsphere_* stage tools",
             "antigravity_enabled": os.environ.get("ANTIGRAVITY_ENABLED", "true"),
+            "antigravity_force_fallback": os.environ.get(
+                "ANTIGRAVITY_FORCE_FALLBACK", "false"
+            ),
             "gemini_models": os.environ.get(
                 "ANTIGRAVITY_MODELS", "gemini-3.6-flash"
             ).split(",")[0],
-            "mcp_server": "official mcp-server-datahub via uvx stdio when USE_OFFICIAL_MCP=true",
+            "mcp_server": "official mcp-server-datahub via uvx stdio when USE_OFFICIAL_MCP=true and GMS reachable",
             "live_gms": probe.reachable,
+            "honesty": (
+                "Job execution_mode is ground truth: antigravity_closed_loop | "
+                "demo_closed_loop | live_mcp. Mutations only when GMS + TOOLS_IS_MUTATION_ENABLED."
+            ),
         },
     }
 
