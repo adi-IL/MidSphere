@@ -1,16 +1,13 @@
 # MidSphere
 
-```
-   __  ___  _     _______       __
-  /  |/  / (_)___/ / ___/____  / /_  ___  _______
- / /|_/ / / / __  /\__ \/ __ \/ __ \/ _ \/ ___/ _ \
-/ /  / / / / /_/ /___/ / /_/ / / / /  __/ /  /  __/
-/_/  /_/_/\__,_//____/ .___/_/ /_/\___/_/   \___/
-                      /_/
-```
+<p align="center">
+  <img src="frontend/public/logo.png" alt="MidSphere — Autonomous Context Circuit-Breaker Engine" width="360" />
+</p>
 
-### Autonomous Context Command and Circuit-Breaker Engine
-*Powered by [DataHub](https://datahub.com) · MCP · Antigravity · Gemini*
+<p align="center">
+  <strong>Autonomous Context Circuit-Breaker Engine for Data Platforms</strong><br />
+  <em>Powered by <a href="https://datahub.com">DataHub</a> · MCP · Antigravity · Gemini</em>
+</p>
 
 Organizations ship AI agents faster than they ship trustworthy context.
 When schema drift, bad quality, PII leaks, or orphan ownership hit the catalog, the failure does not stop at Slack.
