@@ -440,8 +440,8 @@ export const NYCTAXI_JOB: JobArtifact = {
     {
       ts: "14:15:01.000",
       agent: "ContextSentinel",
-      kind: "TOOL",
-      message: "get_lineage urn=…raw_yellow_trips max_hops=2 220ms",
+      kind: "STATUS",
+      message: "sim get_lineage urn=…raw_yellow_trips max_hops=2 220ms (demo artifact)",
       latency_ms: 220,
       items_processed: 4,
     },
@@ -462,15 +462,15 @@ export const NYCTAXI_JOB: JobArtifact = {
     {
       ts: "14:15:02.600",
       agent: "CircuitBreaker",
-      kind: "TOOL",
-      message: "add_tags PIPELINE_LAG,QUARANTINED entities=1",
+      kind: "STATUS",
+      message: "sim add_tags PIPELINE_LAG,QUARANTINED entities=1 (demo artifact)",
       latency_ms: 80,
     },
     {
       ts: "14:15:03.000",
       agent: "CircuitBreaker",
-      kind: "WRITE",
-      message: "gate_status=BLOCKED ok",
+      kind: "STATUS",
+      message: "sim gate_status=BLOCKED ok (demo artifact)",
     },
     {
       ts: "14:15:04.100",
@@ -483,10 +483,11 @@ export const NYCTAXI_JOB: JobArtifact = {
       ts: "14:15:04.700",
       agent: "MBOMEngine",
       kind: "MBOM",
-      message: "save_document freshness_SLA_attestation linked",
+      message: "sim save_document freshness_SLA_attestation linked (demo artifact)",
       latency_ms: 115,
     },
   ],
+
   aspects: [
     {
       urn: "urn:li:dataset:(urn:li:dataPlatform:bigquery,nyctaxi.mart_monthly_revenue,PROD)",

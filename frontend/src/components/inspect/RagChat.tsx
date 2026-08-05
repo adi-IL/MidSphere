@@ -41,14 +41,13 @@ export function RagChat({ job }: Props) {
       responseText = `**MidSphere Circuit Breaker Control Operations:**
 
 1. **⚡ Trip Circuit Button:**
-   • **Action:** Manually trips the advisory circuit breaker on the selected dataset/blast path.
-   • **DataHub Writes:** Applies official MCP tags (\`urn:li:tag:QUARANTINED\`, \`urn:li:tag:CIRCUIT_BROKEN\`, \`urn:li:tag:MIDSPHERE_AUDIT\`) and sets structured property \`midsphere.gate_status = BLOCKED\`.
-   • **Consumer Gate Effect:** Forces \`gateStatus = BLOCKED\`. Downstream pipelines checking \`GET /v1/gate/{urn}\` will halt execution to prevent data corruption.
+   • **Action:** Calls \`/v1/jobs/{id}/trip\` (or updates job-local state when offline), setting \`gateStatus = BLOCKED\`.
+   • **DataHub Integration:** MidSphere policy enforces \`BLOCKED\` on Consumer Gate (\`GET /v1/gate/{urn}\`). Live DataHub MCP tags/properties are mutated when live MCP integration and mutations (\`TOOLS_IS_MUTATION_ENABLED=true\`) are enabled.
 
 2. **🔓 Lift Quarantine Button:**
-   • **Action:** Clears advisory quarantine after a data engineer reviews the findings or merges a remediation PR.
-   • **DataHub Writes:** Sets structured property \`midsphere.gate_status = LIFTED\` and removes quarantine tags.
-   • **Consumer Gate Effect:** Calls \`POST /v1/jobs/{id}/lift\`. The Consumer Gate now returns \`OPEN / ALLOW\`, allowing downstream ETL jobs to resume cleanly.`;
+   • **Action:** Calls \`/v1/jobs/{id}/lift\` (or updates job-local state when offline), setting \`gateStatus = LIFTED\`.
+   • **DataHub Integration:** Clears quarantine in MidSphere job state. Consumer Gate now returns \`OPEN / ALLOW\`, unblocking downstream pipelines. Live DataHub tags/properties are mutated when live MCP integration is enabled.`;
+
     }
 
     // 2. SELECTIVE LINEAGE / OPEN FORKS

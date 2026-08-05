@@ -436,13 +436,14 @@ export default function App() {
         addLog(
           makeLog(
             "CircuitBreaker",
-            "WRITE",
-            `manual circuit tripped job=${job.job_id} gate_status=BLOCKED urn=${targetUrn}`,
+            "STATUS",
+            `manual circuit trip submitted job=${job.job_id} gate_status=BLOCKED urn=${targetUrn}`,
           ),
         );
         return;
       }
     }
+
 
     // Local / Offline demo trip
     setJob((prev) => {
@@ -486,13 +487,14 @@ export default function App() {
         addLog(
           makeLog(
             "CircuitBreaker",
-            "WRITE",
-            `quarantine lifted for job=${job.job_id} gate_status=LIFTED`,
+            "STATUS",
+            `quarantine lift submitted for job=${job.job_id} gate_status=LIFTED`,
           ),
         );
         return;
       }
     }
+
 
     // Local / Offline demo lift
     setJob((prev) => {
