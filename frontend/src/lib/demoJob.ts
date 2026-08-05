@@ -90,8 +90,8 @@ export const DEMO_JOB: JobArtifact = {
     {
       ts: "14:02:01.012",
       agent: "ContextSentinel",
-      kind: "TOOL",
-      message: "get_lineage urn=…raw_patients max_hops=2 240ms",
+      kind: "STATUS",
+      message: "sim get_lineage urn=…raw_patients max_hops=2 240ms (demo artifact)",
       latency_ms: 240,
       items_processed: 4,
     },
@@ -112,15 +112,15 @@ export const DEMO_JOB: JobArtifact = {
     {
       ts: "14:02:04.010",
       agent: "CircuitBreaker",
-      kind: "TOOL",
-      message: "add_tags QUARANTINED,CIRCUIT_BROKEN entities=1",
+      kind: "STATUS",
+      message: "sim add_tags QUARANTINED,CIRCUIT_BROKEN entities=1 (demo artifact)",
       latency_ms: 85,
     },
     {
       ts: "14:02:04.400",
       agent: "CircuitBreaker",
-      kind: "WRITE",
-      message: "gate_status=BLOCKED ok",
+      kind: "STATUS",
+      message: "sim gate_status=BLOCKED ok (demo artifact)",
     },
     {
       ts: "14:02:06.800",
@@ -133,10 +133,11 @@ export const DEMO_JOB: JobArtifact = {
       ts: "14:02:07.500",
       agent: "MBOMEngine",
       kind: "MBOM",
-      message: "save_document related_assets linked",
+      message: "sim save_document related_assets linked (demo artifact)",
       latency_ms: 120,
     },
   ],
+
   aspects: [
     {
       urn: "urn:li:dataset:(urn:li:dataPlatform:sqlite,healthcare.mart_billing,PROD)",
@@ -264,8 +265,8 @@ export const ECOMMERCE_JOB: JobArtifact = {
     {
       ts: "14:10:01.000",
       agent: "ContextSentinel",
-      kind: "TOOL",
-      message: "get_lineage urn=…raw_customers max_hops=2 310ms",
+      kind: "STATUS",
+      message: "sim get_lineage urn=…raw_customers max_hops=2 310ms (demo artifact)",
       latency_ms: 310,
       items_processed: 4,
     },
@@ -286,15 +287,15 @@ export const ECOMMERCE_JOB: JobArtifact = {
     {
       ts: "14:10:02.800",
       agent: "CircuitBreaker",
-      kind: "TOOL",
-      message: "add_tags PII_LEAK,QUARANTINED entities=1",
+      kind: "STATUS",
+      message: "sim add_tags PII_LEAK,QUARANTINED entities=1 (demo artifact)",
       latency_ms: 90,
     },
     {
       ts: "14:10:03.200",
       agent: "CircuitBreaker",
-      kind: "WRITE",
-      message: "gate_status=BLOCKED ok",
+      kind: "STATUS",
+      message: "sim gate_status=BLOCKED ok (demo artifact)",
     },
     {
       ts: "14:10:04.500",
@@ -307,10 +308,11 @@ export const ECOMMERCE_JOB: JobArtifact = {
       ts: "14:10:05.100",
       agent: "MBOMEngine",
       kind: "MBOM",
-      message: "save_document PII_compliance_attestation linked",
+      message: "sim save_document PII_compliance_attestation linked (demo artifact)",
       latency_ms: 130,
     },
   ],
+
   aspects: [
     {
       urn: "urn:li:dataset:(urn:li:dataPlatform:looker,ecommerce.mart_customer_360,PROD)",

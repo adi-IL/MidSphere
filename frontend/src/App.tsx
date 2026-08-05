@@ -7,7 +7,8 @@ import {
 import { InspectorDrawer } from "./components/layout/InspectorDrawer";
 import { LoadingScreen } from "./components/layout/LoadingScreen";
 import { LineageCanvas } from "./components/graph/LineageCanvas";
-import { loadCommandJob, fetchHealth, createJob, liftQuarantineJob } from "./lib/api";
+import { loadCommandJob, fetchHealth, createJob, liftQuarantineJob, tripJob } from "./lib/api";
+
 
 import type { AgentName, AgentStatus, JobArtifact, JobEvent, ScenarioId } from "./lib/types";
 import { AGENT_ACCENTS, DEFAULT_ROOT_URN, SCENARIOS } from "./lib/types";
@@ -425,9 +426,25 @@ export default function App() {
     [statuses],
   );
 
-  const onTripCircuit = useCallback(() => {
+  const onTripCircuit = useCallback(async () => {
     if (!job) return;
     const targetUrn = job.blast_radius.nodes.find((n) => n.impacted)?.urn ?? job.root_urn;
+    if (source === "api") {
+      const updated = await tripJob(job.job_id);
+      if (updated) {
+        setJob(updated);
+        addLog(
+          makeLog(
+            "CircuitBreaker",
+            "WRITE",
+            `manual circuit tripped job=${job.job_id} gate_status=BLOCKED urn=${targetUrn}`,
+          ),
+        );
+        return;
+      }
+    }
+
+    // Local / Offline demo trip
     setJob((prev) => {
       if (!prev) return prev;
       return {
@@ -454,21 +471,30 @@ export default function App() {
     addLog(
       makeLog(
         "CircuitBreaker",
-        "WRITE",
-        `manual circuit tripped tag=QUARANTINED gate_status=BLOCKED urn=${targetUrn}`,
+        "STATUS",
+        `sim manual circuit trip tag=QUARANTINED gate_status=BLOCKED urn=${targetUrn}`,
       ),
     );
-  }, [job, addLog]);
+  }, [job, source, addLog]);
 
   const onLiftQuarantine = useCallback(async () => {
     if (!job) return;
-    try {
-      if (source === "api") {
-        await liftQuarantineJob(job.job_id);
+    if (source === "api") {
+      const updated = await liftQuarantineJob(job.job_id);
+      if (updated) {
+        setJob(updated);
+        addLog(
+          makeLog(
+            "CircuitBreaker",
+            "WRITE",
+            `quarantine lifted for job=${job.job_id} gate_status=LIFTED`,
+          ),
+        );
+        return;
       }
-    } catch {
-      // Offline fallback
     }
+
+    // Local / Offline demo lift
     setJob((prev) => {
       if (!prev) return prev;
       return {
@@ -498,7 +524,7 @@ export default function App() {
       makeLog(
         "CircuitBreaker",
         "STATUS",
-        `quarantine lifted for job=${job.job_id.slice(0, 8)} gate_status=LIFTED`,
+        `sim quarantine lifted for job=${job.job_id} gate_status=LIFTED`,
       ),
     );
   }, [job, source, addLog]);

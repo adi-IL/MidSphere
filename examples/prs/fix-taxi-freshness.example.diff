@@ -1,0 +1,7 @@
+--- a/models/marts/mart_monthly_revenue.sql
++++ b/models/marts/mart_monthly_revenue.sql
+@@ -8,5 +8,5 @@ select
+     sum(fare_amount) as total_revenue
+ from {{ ref('stg_trip_fare') }}
+-where pickup_datetime >= current_date() - interval 7 day
++where pickup_datetime >= current_date() - interval 1 day

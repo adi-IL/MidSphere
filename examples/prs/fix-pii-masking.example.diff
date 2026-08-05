@@ -1,0 +1,10 @@
+--- a/models/marts/mart_customer_360.sql
++++ b/models/marts/mart_customer_360.sql
+@@ -12,7 +12,7 @@ select
+     customer_id,
+     first_name,
+     last_name,
+-    social_security_number,
++    to_hex(sha256(social_security_number)) as social_security_number_hash,
+     email_address
+ from {{ ref('stg_customers') }}

@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import json
+import os
+from pathlib import Path
 from fastapi import APIRouter, HTTPException
 
 from agents.pipeline import URN_BILLING, lift_quarantine, run_closed_loop
@@ -12,23 +15,53 @@ router = APIRouter()
 
 _JOBS: dict[str, JobArtifact] = {}
 _LATEST: str | None = None
+_STORE_PATH = Path(".midsphere/jobs.json")
 
 DEFAULT_ROOT = (
     "urn:li:dataset:(urn:li:dataPlatform:sqlite,healthcare.raw_patients,PROD)"
 )
 
 
+def _load_persisted_jobs() -> None:
+    global _LATEST
+    if _STORE_PATH.exists():
+        try:
+            with _STORE_PATH.open("r", encoding="utf-8") as f:
+                data = json.load(f)
+                _LATEST = data.get("latest")
+                raw_jobs = data.get("jobs", {})
+                for j_id, j_dict in raw_jobs.items():
+                    _JOBS[j_id] = JobArtifact.model_validate(j_dict)
+        except Exception:  # noqa: BLE001
+            pass
+
+
+def _persist_jobs() -> None:
+    try:
+        _STORE_PATH.parent.mkdir(parents=True, exist_ok=True)
+        with _STORE_PATH.open("w", encoding="utf-8") as f:
+            data = {
+                "latest": _LATEST,
+                "jobs": {k: v.model_dump() for k, v in _JOBS.items()},
+            }
+            json.dump(data, f, indent=2)
+    except Exception:  # noqa: BLE001
+        pass
+
+
+_load_persisted_jobs()
+
+
 def _store(job: JobArtifact) -> JobArtifact:
     global _LATEST
     _JOBS[job.job_id] = job
     _LATEST = job.job_id
+    _persist_jobs()
     return job
 
 
 @router.get("/health")
 def health() -> dict:
-    import os
-
     s = get_settings()
     client = build_client_from_env()
     probe = client.probe()
@@ -61,6 +94,7 @@ def health() -> dict:
         "datahub_reachable": probe.reachable,
         "datahub_detail": probe.detail,
         "mode": "closed_loop",
+        "storage": "process-local (file-backed)",
         "tier": s.datahub_tier,
         "gate_policy": GATE_POLICY,
         "mutations_env": probe.mutations_enabled,
@@ -110,6 +144,7 @@ def lift_job(job_id: str, body: LiftRequest | None = None) -> JobArtifact:
     urns = body.entity_urns if body is not None else None
     job = lift_quarantine(_JOBS[job_id], entity_urns=urns)
     _JOBS[job_id] = job
+    _persist_jobs()
     return job
 
 

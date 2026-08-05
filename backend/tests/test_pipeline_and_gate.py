@@ -155,3 +155,58 @@ def test_stage_tools_builder_antigravity_path():
         raise AssertionError("expected forbidden tool to raise")
     except AssertionError as exc:
         assert "Forbidden" in str(exc) or "datahub_" in str(exc)
+
+
+def test_scenario_builder_and_fallback_parity():
+    """Verify primary MidSphereJobBuilder and fallback pipeline match on risk, quarantine, PR, and MBOM for all scenarios."""
+    from agents.stage_tools import MidSphereJobBuilder
+
+    scenarios = {
+        "healthcare": (
+            "urn:li:dataset:(urn:li:dataPlatform:sqlite,healthcare.raw_patients,PROD)",
+            61,
+            "urn:li:dataset:(urn:li:dataPlatform:sqlite,healthcare.mart_billing,PROD)",
+        ),
+        "ecommerce": (
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,ecommerce.raw_customers,PROD)",
+            88,
+            "urn:li:dataset:(urn:li:dataPlatform:looker,ecommerce.mart_customer_360,PROD)",
+        ),
+        "nyctaxi": (
+            "urn:li:dataset:(urn:li:dataPlatform:bigquery,nyctaxi.raw_yellow_trips,PROD)",
+            65,
+            "urn:li:dataset:(urn:li:dataPlatform:bigquery,nyctaxi.mart_monthly_revenue,PROD)",
+        ),
+    }
+
+    client = McpClient(gms_url="http://127.0.0.1:1", token="", timeout=0.2)
+    repo_root = BACKEND.parent
+
+    for name, (root_urn, expected_risk, expected_quarantine_urn) in scenarios.items():
+        # Test Antigravity Builder
+        b = MidSphereJobBuilder(root_urn=root_urn, mode="full", auto_trip=True)
+        b.midsphere_context_sentinel_audit(root_urn)
+        b.midsphere_cascade_analyzer(max_hops=2)
+        b.midsphere_circuit_breaker_trip(True)
+        b.midsphere_fix_architect()
+        b.midsphere_mbom_engine()
+        bj = b.to_job(execution_mode="antigravity_closed_loop")
+
+        assert bj.blast_radius["risk_score"] == expected_risk, f"{name} builder risk mismatch"
+        assert bj.quarantine is not None
+        assert expected_quarantine_urn in bj.quarantine.entityUrns, f"{name} builder quarantine mismatch"
+        assert bj.pr is not None and bj.pr.get("path")
+        assert bj.mbom is not None and bj.mbom.get("path")
+
+        # Test Fallback Pipeline
+        fj = run_closed_loop(root_urn, mode="full", auto_trip=True, client=client)
+        assert fj.blast_radius["risk_score"] == expected_risk, f"{name} fallback risk mismatch"
+        assert fj.quarantine is not None
+        assert expected_quarantine_urn in fj.quarantine.entityUrns, f"{name} fallback quarantine mismatch"
+
+        # Verify Artifact Existence
+        pr_abs = repo_root / fj.pr["path"]
+        mbom_abs = repo_root / fj.mbom["path"]
+        assert pr_abs.exists(), f"PR diff artifact missing at {pr_abs}"
+        assert mbom_abs.exists(), f"MBOM artifact missing at {mbom_abs}"
+

@@ -29,6 +29,7 @@ export async function fetchHealth(): Promise<{
   mode?: string;
   datahub_reachable?: boolean;
   tier?: string;
+  storage?: string;
 } | null> {
   return tryJson("/v1/health");
 }
@@ -83,6 +84,24 @@ export async function liftQuarantineJob(jobId: string): Promise<JobArtifact | nu
   }
 }
 
+export async function tripJob(jobId: string): Promise<JobArtifact | null> {
+  const ctrl = new AbortController();
+  const t = window.setTimeout(() => ctrl.abort(), 12_000);
+  try {
+    const res = await fetch(`${API_BASE}/v1/jobs/${jobId}/trip`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      signal: ctrl.signal,
+    });
+    if (!res.ok) return null;
+    return (await res.json()) as JobArtifact;
+  } catch {
+    return null;
+  } finally {
+    window.clearTimeout(t);
+  }
+}
+
 /** Prefer live API; fall back to offline demo artifact for judges. */
 export async function loadCommandJob(): Promise<{
   job: JobArtifact;
@@ -92,4 +111,3 @@ export async function loadCommandJob(): Promise<{
   if (live?.job_id) return { job: live, source: "api" };
   return { job: DEMO_JOB, source: "demo" };
 }
-

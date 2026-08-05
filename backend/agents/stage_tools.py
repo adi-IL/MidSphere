@@ -17,7 +17,6 @@ from agents.constants import (
     URN_DEMOGRAPHICS,
     URN_RAW,
     URN_STAGING,
-    compute_risk_score,
 )
 from models.artifacts import (
     AuditFinding,
@@ -30,6 +29,130 @@ from models.artifacts import (
 
 def _ts() -> str:
     return datetime.now(timezone.utc).strftime("%H:%M:%S.%f")[:-3]
+
+
+def _get_scenario_spec(root_urn: str) -> dict[str, Any]:
+    """Single source of truth scenario contract for MidSphere stage tools."""
+    u = root_urn.lower()
+    if "ecommerce" in u or "customers" in u:
+        urn_raw_customers = "urn:li:dataset:(urn:li:dataPlatform:snowflake,ecommerce.raw_customers,PROD)"
+        urn_stg_customers = "urn:li:dataset:(urn:li:dataPlatform:dbt,ecommerce.stg_customers,PROD)"
+        urn_mart_c360 = "urn:li:dataset:(urn:li:dataPlatform:looker,ecommerce.mart_customer_360,PROD)"
+        urn_mart_catalog = "urn:li:dataset:(urn:li:dataPlatform:snowflake,ecommerce.mart_product_catalog,PROD)"
+
+        return {
+            "scenario": "ecommerce",
+            "findings": [
+                AuditFinding(
+                    id="f_pii1",
+                    type="UNGOVERNED_PII",
+                    severity="CRITICAL",
+                    entity_urn=urn_mart_c360,
+                    column_path="social_security_number",
+                    evidence="Raw unhashed SSN exposed in customer_360 analytics mart",
+                    rationale="Unencrypted PII violates GDPR & HIPAA compliance policies",
+                ),
+                AuditFinding(
+                    id="f_pii2",
+                    type="MISSING_OWNER",
+                    severity="HIGH",
+                    entity_urn=urn_raw_customers,
+                    column_path="owner",
+                    evidence="Dataset ownership metadata is unassigned",
+                    rationale="Orphan datasets increase compliance risk and response latency",
+                ),
+            ],
+            "nodes": [
+                BlastNode(urn=urn_raw_customers, name="raw_customers", hop=0, impacted=True, reason="Contains raw unmasked customer PII"),
+                BlastNode(urn=urn_stg_customers, name="stg_customers", hop=1, impacted=True, reason="Propagates unmasked SSN to analytics layer"),
+                BlastNode(urn=urn_mart_c360, name="mart_customer_360", hop=2, impacted=True, reason="Exposes SSN to business intelligence dashboards"),
+                BlastNode(urn=urn_mart_catalog, name="mart_product_catalog", hop=2, impacted=False, reason="No PII fields involved (selective halt)"),
+            ],
+            "risk_score": 88,
+            "target_urns": [urn_mart_c360],
+            "pr_path": "examples/prs/fix-pii-masking.example.diff",
+            "pr_summary": "Apply dbt column-level hashing & PII masking policy",
+            "mbom_urn": "urn:li:document:midsphere-ecommerce-mbom",
+            "mbom_path": "examples/mboms/ecommerce-pii-mbom.example.md",
+        }
+    elif "nyctaxi" in u or "trips" in u or "taxi" in u or "yellow" in u:
+        urn_raw_trips = "urn:li:dataset:(urn:li:dataPlatform:bigquery,nyctaxi.raw_yellow_trips,PROD)"
+        urn_stg_fare = "urn:li:dataset:(urn:li:dataPlatform:bigquery,nyctaxi.stg_trip_fare,PROD)"
+        urn_mart_revenue = "urn:li:dataset:(urn:li:dataPlatform:bigquery,nyctaxi.mart_monthly_revenue,PROD)"
+        urn_mart_dist = "urn:li:dataset:(urn:li:dataPlatform:bigquery,nyctaxi.mart_trip_distance_stats,PROD)"
+
+        return {
+            "scenario": "nyctaxi",
+            "findings": [
+                AuditFinding(
+                    id="f_taxi1",
+                    type="FRESHNESS_VIOLATION",
+                    severity="HIGH",
+                    entity_urn=urn_mart_revenue,
+                    column_path="pickup_datetime",
+                    evidence="Last ingestion timestamp > 72 hours stale (SLA: 24h)",
+                    rationale="Stale trip ingestion skews monthly revenue reports",
+                ),
+                AuditFinding(
+                    id="f_taxi2",
+                    type="SCHEMA_DRIFT",
+                    severity="MEDIUM",
+                    entity_urn=urn_raw_trips,
+                    column_path="extra_surcharge",
+                    evidence="Unannounced column addition extra_surcharge in raw ingestion",
+                    rationale="Schema drift causes downstream dbt compilation failures",
+                ),
+            ],
+            "nodes": [
+                BlastNode(urn=urn_raw_trips, name="raw_yellow_trips", hop=0, impacted=True, reason="Source table stale by 72h"),
+                BlastNode(urn=urn_stg_fare, name="stg_trip_fare", hop=1, impacted=True, reason="Propagates stale ingestion timestamps"),
+                BlastNode(urn=urn_mart_revenue, name="mart_monthly_revenue", hop=2, impacted=True, reason="Breaches SLA for executive financial reporting"),
+                BlastNode(urn=urn_mart_dist, name="mart_trip_distance_stats", hop=2, impacted=False, reason="Non-time-critical analytics mart (selective halt)"),
+            ],
+            "risk_score": 65,
+            "target_urns": [urn_mart_revenue],
+            "pr_path": "examples/prs/fix-taxi-freshness.example.diff",
+            "pr_summary": "Adjust BigQuery partition filter & freshness SLA window",
+            "mbom_urn": "urn:li:document:midsphere-nyctaxi-mbom",
+            "mbom_path": "examples/mboms/nyctaxi-revenue-mbom.example.md",
+        }
+    else:
+        # Default Healthcare Scenario
+        return {
+            "scenario": "healthcare",
+            "findings": [
+                AuditFinding(
+                    id="f1",
+                    type="NEGATIVE_BILLING",
+                    severity="HIGH",
+                    entity_urn=URN_BILLING,
+                    column_path="billing_amount",
+                    evidence="~2% rows with billing_amount < 0 (planted healthcare dataset)",
+                    rationale="Invalid financial measures poison billing mart aggregates",
+                ),
+                AuditFinding(
+                    id="f2",
+                    type="DATE_SWAP",
+                    severity="MEDIUM",
+                    entity_urn=URN_RAW,
+                    column_path="date_of_admission",
+                    evidence="admission after discharge on subset of rows",
+                    rationale="Produces negative length_of_stay in billing path",
+                ),
+            ],
+            "nodes": [
+                BlastNode(urn=URN_RAW, name="raw_patients", hop=0, impacted=True, reason="Source of planted quality issues"),
+                BlastNode(urn=URN_STAGING, name="staging_patients", hop=1, impacted=True, reason="Propagates source issues"),
+                BlastNode(urn=URN_BILLING, name="mart_billing", hop=2, impacted=True, reason="NEGATIVE_BILLING + DATE_SWAP cascade"),
+                BlastNode(urn=URN_DEMOGRAPHICS, name="mart_demographics", hop=2, impacted=False, reason="Not affected by this finding set (selective halt)"),
+            ],
+            "risk_score": 61,
+            "target_urns": [URN_BILLING],
+            "pr_path": "examples/prs/fix-negative-billing.example.diff",
+            "pr_summary": "filter negative billing + enforce admission<=discharge",
+            "mbom_urn": f"urn:li:document:midsphere-mbom-example",
+            "mbom_path": "examples/mboms/healthcare-billing-mbom.example.md",
+        }
 
 
 class MidSphereJobBuilder:
@@ -74,80 +197,9 @@ class MidSphereJobBuilder:
             "TOOL",
             "midsphere_context_sentinel_audit (antigravity custom tool)",
         )
-        urn_lower = self.root_urn.lower()
-        if "ecommerce" in urn_lower or "customers" in urn_lower:
-            urn_raw_customers = "urn:li:dataset:(urn:li:dataPlatform:snowflake,ecommerce.raw_customers,PROD)"
-            urn_stg_customers = "urn:li:dataset:(urn:li:dataPlatform:dbt,ecommerce.stg_customers,PROD)"
-            urn_mart_c360 = "urn:li:dataset:(urn:li:dataPlatform:looker,ecommerce.mart_customer_360,PROD)"
-            urn_mart_catalog = "urn:li:dataset:(urn:li:dataPlatform:snowflake,ecommerce.mart_product_catalog,PROD)"
+        spec = _get_scenario_spec(self.root_urn)
+        self.findings = spec["findings"]
 
-            self.findings = [
-                AuditFinding(
-                    id="f_pii1",
-                    type="UNGOVERNED_PII",
-                    severity="CRITICAL",
-                    entity_urn=urn_mart_c360,
-                    column_path="social_security_number",
-                    evidence="Raw unhashed SSN exposed in customer_360 analytics mart",
-                    rationale="Unencrypted PII violates GDPR & HIPAA compliance policies",
-                ),
-                AuditFinding(
-                    id="f_pii2",
-                    type="MISSING_OWNER",
-                    severity="HIGH",
-                    entity_urn=urn_raw_customers,
-                    column_path="owner",
-                    evidence="Dataset ownership metadata is unassigned",
-                    rationale="Orphan datasets increase compliance risk and response latency",
-                ),
-            ]
-        elif "nyctaxi" in urn_lower or "trips" in urn_lower or "taxi" in urn_lower:
-            urn_raw_trips = "urn:li:dataset:(urn:li:dataPlatform:bigquery,nyctaxi.raw_yellow_trips,PROD)"
-            urn_stg_fare = "urn:li:dataset:(urn:li:dataPlatform:bigquery,nyctaxi.stg_trip_fare,PROD)"
-            urn_mart_revenue = "urn:li:dataset:(urn:li:dataPlatform:bigquery,nyctaxi.mart_monthly_revenue,PROD)"
-            urn_mart_dist = "urn:li:dataset:(urn:li:dataPlatform:bigquery,nyctaxi.mart_trip_distance_stats,PROD)"
-
-            self.findings = [
-                AuditFinding(
-                    id="f_taxi1",
-                    type="FRESHNESS_VIOLATION",
-                    severity="HIGH",
-                    entity_urn=urn_mart_revenue,
-                    column_path="pickup_datetime",
-                    evidence="Last ingestion timestamp > 72 hours stale (SLA: 24h)",
-                    rationale="Stale trip ingestion skews monthly revenue reports",
-                ),
-                AuditFinding(
-                    id="f_taxi2",
-                    type="SCHEMA_DRIFT",
-                    severity="MEDIUM",
-                    entity_urn=urn_raw_trips,
-                    column_path="extra_surcharge",
-                    evidence="Unannounced column addition extra_surcharge in raw ingestion",
-                    rationale="Schema drift causes downstream dbt compilation failures",
-                ),
-            ]
-        else:
-            self.findings = [
-                AuditFinding(
-                    id="f1",
-                    type="NEGATIVE_BILLING",
-                    severity="HIGH",
-                    entity_urn=URN_BILLING,
-                    column_path="billing_amount",
-                    evidence="~2% rows with billing_amount < 0 (planted healthcare dataset)",
-                    rationale="Invalid financial measures poison billing mart aggregates",
-                ),
-                AuditFinding(
-                    id="f2",
-                    type="DATE_SWAP",
-                    severity="MEDIUM",
-                    entity_urn=URN_RAW,
-                    column_path="date_of_admission",
-                    evidence="admission after discharge on subset of rows",
-                    rationale="Produces negative length_of_stay in billing path",
-                ),
-            ]
         for f in self.findings:
             self._emit(
                 "ContextSentinel",
@@ -178,78 +230,15 @@ class MidSphereJobBuilder:
             "TOOL",
             "midsphere_cascade_analyzer (antigravity custom tool)",
         )
-        urn_lower = self.root_urn.lower()
-        if "ecommerce" in urn_lower or "customers" in urn_lower:
-            urn_raw_customers = "urn:li:dataset:(urn:li:dataPlatform:snowflake,ecommerce.raw_customers,PROD)"
-            urn_stg_customers = "urn:li:dataset:(urn:li:dataPlatform:dbt,ecommerce.stg_customers,PROD)"
-            urn_mart_c360 = "urn:li:dataset:(urn:li:dataPlatform:looker,ecommerce.mart_customer_360,PROD)"
-            urn_mart_catalog = "urn:li:dataset:(urn:li:dataPlatform:snowflake,ecommerce.mart_product_catalog,PROD)"
-
-            self.nodes = [
-                BlastNode(urn=urn_raw_customers, name="raw_customers", hop=0, impacted=True, reason="Contains raw unmasked customer PII"),
-                BlastNode(urn=urn_stg_customers, name="stg_customers", hop=1, impacted=True, reason="Propagates unmasked SSN to analytics layer"),
-                BlastNode(urn=urn_mart_c360, name="mart_customer_360", hop=2, impacted=True, reason="Exposes SSN to business intelligence dashboards"),
-                BlastNode(urn=urn_mart_catalog, name="mart_product_catalog", hop=2, impacted=False, reason="No PII fields involved (selective halt)"),
-            ]
-            self.risk_score = 88
-        elif "nyctaxi" in urn_lower or "trips" in urn_lower or "taxi" in urn_lower:
-            urn_raw_trips = "urn:li:dataset:(urn:li:dataPlatform:bigquery,nyctaxi.raw_yellow_trips,PROD)"
-            urn_stg_fare = "urn:li:dataset:(urn:li:dataPlatform:bigquery,nyctaxi.stg_trip_fare,PROD)"
-            urn_mart_revenue = "urn:li:dataset:(urn:li:dataPlatform:bigquery,nyctaxi.mart_monthly_revenue,PROD)"
-            urn_mart_dist = "urn:li:dataset:(urn:li:dataPlatform:bigquery,nyctaxi.mart_trip_distance_stats,PROD)"
-
-            self.nodes = [
-                BlastNode(urn=urn_raw_trips, name="raw_yellow_trips", hop=0, impacted=True, reason="Source table stale by 72h"),
-                BlastNode(urn=urn_stg_fare, name="stg_trip_fare", hop=1, impacted=True, reason="Propagates stale ingestion timestamps"),
-                BlastNode(urn=urn_mart_revenue, name="mart_monthly_revenue", hop=2, impacted=True, reason="Breaches SLA for executive financial reporting"),
-                BlastNode(urn=urn_mart_dist, name="mart_trip_distance_stats", hop=2, impacted=False, reason="Non-time-critical analytics mart (selective halt)"),
-            ]
-            self.risk_score = 65
-        else:
-            self.nodes = [
-                BlastNode(
-                    urn=URN_RAW,
-                    name="raw_patients",
-                    hop=0,
-                    impacted=True,
-                    reason="Source of planted quality issues",
-                ),
-                BlastNode(
-                    urn=URN_STAGING,
-                    name="staging_patients",
-                    hop=1,
-                    impacted=True,
-                    reason="Propagates source issues",
-                ),
-                BlastNode(
-                    urn=URN_BILLING,
-                    name="mart_billing",
-                    hop=2,
-                    impacted=True,
-                    reason="NEGATIVE_BILLING + DATE_SWAP cascade",
-                ),
-                BlastNode(
-                    urn=URN_DEMOGRAPHICS,
-                    name="mart_demographics",
-                    hop=2,
-                    impacted=False,
-                    reason="Not affected by this finding set (selective halt)",
-                ),
-            ]
-            self.risk_score = 72
+        spec = _get_scenario_spec(self.root_urn)
+        self.nodes = spec["nodes"]
+        self.risk_score = spec["risk_score"]
 
         impacted = [n for n in self.nodes if n.impacted]
-        self.risk_score = compute_risk_score(
-            severity="HIGH",
-            downstream_count=len(impacted),
-            has_pii=True,
-            has_production_env=True,
-            missing_owner=False,
-        )
         self._emit(
             "CascadeAnalyzer",
             "SCORE",
-            f"risk={self.risk_score} selective=true billing=yes demographics=no impacted={len(impacted)}",
+            f"risk={self.risk_score} selective=true impacted={len(impacted)}",
         )
         self._cascade_done = True
         return json.dumps(
@@ -262,7 +251,7 @@ class MidSphereJobBuilder:
         )
 
     def midsphere_circuit_breaker_trip(self, auto_trip: bool = True, **kwargs: Any) -> str:
-        """Run CircuitBreaker: advisory quarantine on impacted billing mart only.
+        """Run CircuitBreaker: advisory quarantine on impacted target mart.
 
         Call after cascade. Skips trip if auto_trip is false or mode is dry_run.
         """
@@ -280,7 +269,9 @@ class MidSphereJobBuilder:
             self._break_done = True
             return json.dumps({"ok": True, "skipped": True, "reason": "dry_run or auto_trip=false"})
 
-        targets = [URN_BILLING]
+        spec = _get_scenario_spec(self.root_urn)
+        targets = spec["target_urns"]
+
         self._emit(
             "CircuitBreaker",
             "WRITE",
@@ -318,11 +309,12 @@ class MidSphereJobBuilder:
             "TOOL",
             "midsphere_fix_architect (antigravity custom tool)",
         )
-        path = "examples/prs/fix-negative-billing.example.diff"
+        spec = _get_scenario_spec(self.root_urn)
+        path = spec["pr_path"]
         self.pr = {
             "status": "dry_run",
             "path": path,
-            "diff_summary": "filter negative billing + enforce admission<=discharge",
+            "diff_summary": spec["pr_summary"],
         }
         self._emit("FixArchitect", "PR", f"dry_run path={path}")
         self._fix_done = True
@@ -336,11 +328,12 @@ class MidSphereJobBuilder:
             "TOOL",
             "midsphere_mbom_engine (antigravity custom tool)",
         )
-        doc_urn = f"urn:li:document:midsphere-mbom-{self.job_id[:8]}"
+        spec = _get_scenario_spec(self.root_urn)
+        doc_urn = spec["mbom_urn"] if "mbom_urn" in spec and "midsphere-mbom-example" not in spec["mbom_urn"] else f"urn:li:document:midsphere-mbom-{self.job_id[:8]}"
         self.mbom = {
             "document_urn": doc_urn,
-            "path": "examples/mboms/healthcare-billing-mbom.example.md",
-            "related_assets": [URN_BILLING],
+            "path": spec["mbom_path"],
+            "related_assets": spec["target_urns"],
         }
         self._emit(
             "MBOMEngine",

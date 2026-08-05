@@ -181,10 +181,14 @@ async def _run_agent_loop(
                                 message=f"antigravity_summary: {builder.operator_summary[:500]}",
                             )
                         )
+                    from midsphere_mcp.client import build_client_from_env
+
+                    reachable = build_client_from_env().probe().reachable
                     job = builder.to_job(
                         execution_mode="antigravity_closed_loop",
-                        datahub_reachable=False,
+                        datahub_reachable=reachable,
                     )
+
                     # Ensure at least one stage TOOL event if agent skipped calls
                     # (ensure_complete_fallback inside to_job already ran stages)
                     return job
