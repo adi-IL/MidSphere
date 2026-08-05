@@ -1,0 +1,46 @@
+# Keep the durable VERCEL_TOKEN "Last Active" fresh and fail loudly if it dies.
+#
+# Historical Vercel policy auto-removed inactive tokens; a weekly whoami
+# prevents idle expiry. Even with no-expiry dashboard tokens, this is an early
+# warning that Actions deploys would fail before the next frontend push.
+#
+# Official community pattern:
+#   https://github.com/vercel/vercel/discussions/5112
+#
+# Requires the same VERCEL_TOKEN secret as deploy-frontend.yml.
+
+name: Vercel Token Keepalive
+
+on:
+  schedule:
+    # Mondays 00:00 UTC
+    - cron: "0 0 * * MON"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  whoami:
+    name: vercel whoami
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+    steps:
+      - name: Install Vercel CLI
+        run: npm install --global vercel@58
+
+      - name: Verify token still works
+        run: |
+          set -euo pipefail
+          if [ -z "${VERCEL_TOKEN:-}" ]; then
+            echo "::error::VERCEL_TOKEN secret is empty. Create at https://vercel.com/account/tokens"
+            exit 1
+          fi
+          if ! vercel whoami; then
+            echo "::error::VERCEL_TOKEN is invalid or revoked. Rotate at https://vercel.com/account/tokens"
+            echo "::error::Then: gh secret set VERCEL_TOKEN"
+            exit 1
+          fi
+          echo "Token OK — last-active bumped for CI durability."

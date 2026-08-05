@@ -1,13 +1,21 @@
 # Deploy frontend/ → Vercel production on push to main.
 # Path-filtered monorepo job (official Vercel GitHub Actions pattern).
 #
-# Required secrets:
-#   VERCEL_TOKEN
-#   VERCEL_ORG_ID
-#   VERCEL_PROJECT_ID
+# Required secrets (all three):
+#   VERCEL_TOKEN       — durable account access token (NOT a CLI OAuth/login token)
+#   VERCEL_ORG_ID      — team_… from frontend/.vercel/project.json
+#   VERCEL_PROJECT_ID  — prj_… from frontend/.vercel/project.json
 #
-# Docs: https://vercel.com/docs/git/vercel-for-github
-#       https://vercel.com/guides/how-can-i-use-github-actions-with-vercel
+# Create VERCEL_TOKEN at https://vercel.com/account/tokens
+#   Name: midsphere-github-actions
+#   Expiration: No Expiration (or longest available)
+#   Scope: Full Account or the team that owns project midsphere
+# Never paste a `vercel login` / Sign-in-with-Vercel OAuth token (prefix often vca_);
+# those expire in hours and break Actions with "The specified token is not valid".
+#
+# Docs: https://vercel.com/kb/guide/how-can-i-use-github-actions-with-vercel
+#       https://vercel.com/kb/guide/how-do-i-use-a-vercel-api-access-token
+#       .github/DEPLOY.md
 
 name: Deploy Frontend (Vercel)
 
@@ -34,6 +42,8 @@ jobs:
     defaults:
       run:
         working-directory: frontend
+    # Official non-interactive auth: VERCEL_TOKEN in the environment.
+    # Also set ORG/PROJECT so pull/build/deploy resolve the linked project.
     env:
       VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
       VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
@@ -42,6 +52,24 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Require Vercel secrets
+        run: |
+          set -euo pipefail
+          missing=0
+          for name in VERCEL_TOKEN VERCEL_ORG_ID VERCEL_PROJECT_ID; do
+            # Bash indirect expansion; empty secrets expand to ""
+            if [ -z "${!name:-}" ]; then
+              echo "::error::Missing required secret or env: $name"
+              missing=1
+            fi
+          done
+          if [ "$missing" -ne 0 ]; then
+            echo "::error::Set repo secrets under Settings → Secrets and variables → Actions."
+            echo "::error::See .github/DEPLOY.md (durable VERCEL_TOKEN from vercel.com/account/tokens)."
+            exit 1
+          fi
+          echo "All required Vercel secrets are present (values not logged)."
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -57,19 +85,33 @@ jobs:
         run: npm run lint
 
       - name: Install Vercel CLI
-        run: npm install --global vercel@latest
+        # Pin major for reproducible CI; bump intentionally when upgrading.
+        run: npm install --global vercel@58
+
+      - name: Authenticate (whoami smoke test)
+        # Fail fast with operator guidance before pull/build burn minutes.
+        # Prefer env VERCEL_TOKEN (documented non-interactive path).
+        run: |
+          set -euo pipefail
+          if ! vercel whoami; then
+            echo "::error::Vercel auth failed. The GitHub secret VERCEL_TOKEN is missing, expired, or is a short-lived CLI OAuth token."
+            echo "::error::Create a durable token: https://vercel.com/account/tokens (name midsphere-github-actions, No Expiration)."
+            echo "::error::Then: gh secret set VERCEL_TOKEN  (paste once; never commit)."
+            echo "::error::Do NOT use tokens from ~/.local/share/com.vercel.cli/auth.json (vca_ OAuth; expire in hours)."
+            exit 1
+          fi
 
       - name: Pull Vercel production env
-        run: vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
+        run: vercel pull --yes --environment=production
 
       - name: Build for production (Vercel)
-        run: vercel build --prod --token="$VERCEL_TOKEN"
+        run: vercel build --prod
 
       - name: Deploy prebuilt to production
         id: deploy
         run: |
           set -euo pipefail
-          URL=$(vercel deploy --prebuilt --prod --token="$VERCEL_TOKEN")
+          URL=$(vercel deploy --prebuilt --prod)
           echo "url=$URL" >> "$GITHUB_OUTPUT"
           echo "Deployed: $URL"
 
@@ -81,4 +123,5 @@ jobs:
             echo "- **URL:** ${{ steps.deploy.outputs.url }}"
             echo "- **Alias:** https://midsphere.vercel.app"
             echo "- **Commit:** \`${{ github.sha }}\`"
+            echo "- **Auth:** durable \`VERCEL_TOKEN\` secret + env-based CLI auth"
           } >> "$GITHUB_STEP_SUMMARY"
