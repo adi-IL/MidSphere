@@ -90,6 +90,9 @@ backend/.venv/
 examples/ui/*.png
 examples/ui/*.jpg
 !examples/ui/.gitkeep
+# Brand kit (favicon mark + full logo) must ship with the Command Center
+!frontend/public/*.png
+!frontend/public/*.ico
 
 
 # Demo video working files (keep script in git, not mp4)
