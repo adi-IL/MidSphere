@@ -86,6 +86,13 @@ frontend/.env.local
 backend/.venv/
 
 # --- Generated / large binary dumps ---
+*.png
 examples/ui/*.png
 examples/ui/*.jpg
 !examples/ui/.gitkeep
+
+
+# Demo video working files (keep script in git, not mp4)
+examples/video/raw/
+examples/video/export/
+*.mp4

@@ -194,9 +194,10 @@ def run_closed_loop_fallback(
         "true",
         "yes",
     )
-    if use_official:
+    if use_official and probe.reachable:
         try:
             from midsphere_mcp.official import call_official_mcp, probe_official_mcp
+
 
             s_url = os.environ.get("DATAHUB_GMS_URL", "http://localhost:8080")
             s_tok = os.environ.get("DATAHUB_GMS_TOKEN", "")
@@ -281,42 +282,136 @@ def run_closed_loop_fallback(
             "USE_OFFICIAL_MCP=false; deterministic stages only (no official MCP process)",
         )
 
-    # Deterministic audit findings (demo healthcare graph)
+    # Deterministic audit findings based on scenario URN
     if live_tool_calls == 0:
         sim("ContextSentinel", "get_lineage", f"urn={root_urn} max_hops=2 upstream=true")
-        sim("ContextSentinel", "list_schema_fields", f"urn={URN_RAW}")
+        sim("ContextSentinel", "list_schema_fields", f"urn={root_urn}")
 
-    emit(
-        "ContextSentinel",
-        "FIND",
-        f"NEGATIVE_BILLING severity=HIGH entity={URN_BILLING}",
-    )
-    emit(
-        "ContextSentinel",
-        "FIND",
-        f"DATE_SWAP severity=MEDIUM entity={URN_RAW}",
-    )
+    urn_lower = root_urn.lower()
+    if "ecommerce" in urn_lower or "customers" in urn_lower:
+        urn_raw_customers = "urn:li:dataset:(urn:li:dataPlatform:snowflake,ecommerce.raw_customers,PROD)"
+        urn_stg_customers = "urn:li:dataset:(urn:li:dataPlatform:dbt,ecommerce.stg_customers,PROD)"
+        urn_mart_c360 = "urn:li:dataset:(urn:li:dataPlatform:looker,ecommerce.mart_customer_360,PROD)"
+        urn_mart_catalog = "urn:li:dataset:(urn:li:dataPlatform:snowflake,ecommerce.mart_product_catalog,PROD)"
 
-    findings = [
-        AuditFinding(
-            id="f1",
-            type="NEGATIVE_BILLING",
-            severity="HIGH",
-            entity_urn=URN_BILLING,
-            column_path="billing_amount",
-            evidence="~2% rows with billing_amount < 0 (planted healthcare dataset)",
-            rationale="Invalid financial measures poison billing mart aggregates",
-        ),
-        AuditFinding(
-            id="f2",
-            type="DATE_SWAP",
-            severity="MEDIUM",
-            entity_urn=URN_RAW,
-            column_path="date_of_admission",
-            evidence="admission after discharge on subset of rows",
-            rationale="Produces negative length_of_stay in billing path",
-        ),
-    ]
+        emit("ContextSentinel", "FIND", f"UNGOVERNED_PII severity=CRITICAL entity={urn_mart_c360}")
+        emit("ContextSentinel", "FIND", f"MISSING_OWNER severity=HIGH entity={urn_raw_customers}")
+
+        findings = [
+            AuditFinding(
+                id="f_pii1",
+                type="UNGOVERNED_PII",
+                severity="CRITICAL",
+                entity_urn=urn_mart_c360,
+                column_path="social_security_number",
+                evidence="Raw unhashed SSN exposed in customer_360 analytics mart",
+                rationale="Unencrypted PII violates GDPR & HIPAA compliance policies",
+            ),
+            AuditFinding(
+                id="f_pii2",
+                type="MISSING_OWNER",
+                severity="HIGH",
+                entity_urn=urn_raw_customers,
+                column_path="owner",
+                evidence="Dataset ownership metadata is unassigned",
+                rationale="Orphan datasets increase compliance risk and response latency",
+            ),
+        ]
+        blast_nodes = [
+            BlastNode(urn=urn_raw_customers, name="raw_customers", hop=0, impacted=True, reason="Contains raw unmasked customer PII"),
+            BlastNode(urn=urn_stg_customers, name="stg_customers", hop=1, impacted=True, reason="Propagates unmasked SSN to analytics layer"),
+            BlastNode(urn=urn_mart_c360, name="mart_customer_360", hop=2, impacted=True, reason="Exposes SSN to business intelligence dashboards"),
+            BlastNode(urn=urn_mart_catalog, name="mart_product_catalog", hop=2, impacted=False, reason="No PII fields involved (selective halt)"),
+        ]
+        risk = 88
+        quarantine_urns = [urn_mart_c360]
+        quarantine_tags = ["urn:li:tag:PII_LEAK", "urn:li:tag:QUARANTINED", "urn:li:tag:MIDSPHERE_AUDIT"]
+        pr_path = "examples/prs/fix-pii-masking.example.diff"
+        pr_summary = "Apply SHA-256 hashing to SSN in stg_customers.sql"
+        mbom_doc = "urn:li:document:midsphere-ecommerce-mbom"
+        mbom_path = "examples/mboms/ecommerce-pii-mbom.example.md"
+
+    elif "nyctaxi" in urn_lower or "trips" in urn_lower or "taxi" in urn_lower:
+        urn_raw_trips = "urn:li:dataset:(urn:li:dataPlatform:bigquery,nyctaxi.raw_yellow_trips,PROD)"
+        urn_stg_fare = "urn:li:dataset:(urn:li:dataPlatform:bigquery,nyctaxi.stg_trip_fare,PROD)"
+        urn_mart_revenue = "urn:li:dataset:(urn:li:dataPlatform:bigquery,nyctaxi.mart_monthly_revenue,PROD)"
+        urn_mart_dist = "urn:li:dataset:(urn:li:dataPlatform:bigquery,nyctaxi.mart_trip_distance_stats,PROD)"
+
+        emit("ContextSentinel", "FIND", f"FRESHNESS_VIOLATION severity=HIGH entity={urn_mart_revenue}")
+        emit("ContextSentinel", "FIND", f"SCHEMA_DRIFT severity=MEDIUM entity={urn_raw_trips}")
+
+        findings = [
+            AuditFinding(
+                id="f_taxi1",
+                type="FRESHNESS_VIOLATION",
+                severity="HIGH",
+                entity_urn=urn_mart_revenue,
+                column_path="pickup_datetime",
+                evidence="Last ingestion timestamp > 72 hours stale (SLA: 24h)",
+                rationale="Stale trip ingestion skews monthly revenue reports",
+            ),
+            AuditFinding(
+                id="f_taxi2",
+                type="SCHEMA_DRIFT",
+                severity="MEDIUM",
+                entity_urn=urn_raw_trips,
+                column_path="extra_surcharge",
+                evidence="Unannounced column addition extra_surcharge in raw ingestion",
+                rationale="Schema drift causes downstream dbt compilation failures",
+            ),
+        ]
+        blast_nodes = [
+            BlastNode(urn=urn_raw_trips, name="raw_yellow_trips", hop=0, impacted=True, reason="Source table stale by 72h"),
+            BlastNode(urn=urn_stg_fare, name="stg_trip_fare", hop=1, impacted=True, reason="Propagates stale ingestion timestamps"),
+            BlastNode(urn=urn_mart_revenue, name="mart_monthly_revenue", hop=2, impacted=True, reason="Breaches SLA for executive financial reporting"),
+            BlastNode(urn=urn_mart_dist, name="mart_trip_distance_stats", hop=2, impacted=False, reason="Non-time-critical analytics mart (selective halt)"),
+        ]
+        risk = 65
+        quarantine_urns = [urn_mart_revenue]
+        quarantine_tags = ["urn:li:tag:PIPELINE_LAG", "urn:li:tag:QUARANTINED", "urn:li:tag:MIDSPHERE_AUDIT"]
+        pr_path = "examples/prs/fix-taxi-freshness.example.diff"
+        pr_summary = "Adjust BigQuery partition filter & freshness SLA window"
+        mbom_doc = "urn:li:document:midsphere-nyctaxi-mbom"
+        mbom_path = "examples/mboms/nyctaxi-revenue-mbom.example.md"
+
+    else:
+        emit("ContextSentinel", "FIND", f"NEGATIVE_BILLING severity=HIGH entity={URN_BILLING}")
+        emit("ContextSentinel", "FIND", f"DATE_SWAP severity=MEDIUM entity={URN_RAW}")
+
+        findings = [
+            AuditFinding(
+                id="f1",
+                type="NEGATIVE_BILLING",
+                severity="HIGH",
+                entity_urn=URN_BILLING,
+                column_path="billing_amount",
+                evidence="~2% rows with billing_amount < 0 (planted healthcare dataset)",
+                rationale="Invalid financial measures poison billing mart aggregates",
+            ),
+            AuditFinding(
+                id="f2",
+                type="DATE_SWAP",
+                severity="MEDIUM",
+                entity_urn=URN_RAW,
+                column_path="date_of_admission",
+                evidence="admission after discharge on subset of rows",
+                rationale="Produces negative length_of_stay in billing path",
+            ),
+        ]
+        blast_nodes = [
+            BlastNode(urn=URN_RAW, name="raw_patients", hop=0, impacted=True, reason="Source of planted quality issues"),
+            BlastNode(urn=URN_STAGING, name="staging_patients", hop=1, impacted=True, reason="Propagates source issues"),
+            BlastNode(urn=URN_BILLING, name="mart_billing", hop=2, impacted=True, reason="NEGATIVE_BILLING + DATE_SWAP cascade"),
+            BlastNode(urn=URN_DEMOGRAPHICS, name="mart_demographics", hop=2, impacted=False, reason="Not affected by this finding set (selective halt)"),
+        ]
+        risk = 61
+        quarantine_urns = [URN_BILLING]
+        quarantine_tags = ["urn:li:tag:QUARANTINED", "urn:li:tag:CIRCUIT_BROKEN", "urn:li:tag:MIDSPHERE_AUDIT"]
+        pr_path = "examples/prs/fix-negative-billing.example.diff"
+        pr_summary = "filter negative billing + enforce admission<=discharge"
+        mbom_doc = f"urn:li:document:midsphere-mbom-{job_id[:8]}"
+        mbom_path = "examples/mboms/healthcare-billing-mbom.example.md"
+
 
     emit(
         "CascadeAnalyzer",
@@ -330,51 +425,14 @@ def run_closed_loop_fallback(
             f"urn={URN_STAGING} downstream=true max_hops=2",
         )
 
-    nodes = [
-        BlastNode(
-            urn=URN_RAW,
-            name="raw_patients",
-            hop=0,
-            impacted=True,
-            reason="Source of planted quality issues",
-        ),
-        BlastNode(
-            urn=URN_STAGING,
-            name="staging_patients",
-            hop=1,
-            impacted=True,
-            reason="Propagates source issues",
-        ),
-        BlastNode(
-            urn=URN_BILLING,
-            name="mart_billing",
-            hop=2,
-            impacted=True,
-            reason="NEGATIVE_BILLING + DATE_SWAP cascade",
-        ),
-        BlastNode(
-            urn=URN_DEMOGRAPHICS,
-            name="mart_demographics",
-            hop=2,
-            impacted=False,
-            reason="Not affected by this finding set (selective halt)",
-        ),
-    ]
+    nodes = blast_nodes
     impacted = [n for n in nodes if n.impacted]
     non_impacted = [n for n in nodes if not n.impacted]
-    assert impacted and non_impacted
 
-    risk = compute_risk_score(
-        severity="HIGH",
-        downstream_count=len(impacted),
-        has_pii=True,
-        has_production_env=True,
-        missing_owner=False,
-    )
     emit(
         "CascadeAnalyzer",
         "SCORE",
-        f"risk={risk} selective=true billing=yes demographics=no impacted={len(impacted)}",
+        f"risk={risk} selective=true impacted={len(impacted)}",
     )
 
     quarantine = None
@@ -389,9 +447,10 @@ def run_closed_loop_fallback(
         emit(
             "CircuitBreaker",
             "STATUS",
-            "stage=CircuitBreaker advisory_quarantine selective_entity=mart_billing",
+            f"stage=CircuitBreaker advisory_quarantine selective_entity={quarantine_urns[0]}",
         )
-        quarantine_targets = [URN_BILLING]
+        quarantine_targets = quarantine_urns
+
         # Real mutations only when official MCP + mutations + GMS
         mut_env = os.environ.get("TOOLS_IS_MUTATION_ENABLED", "false").lower() in (
             "1",
@@ -472,11 +531,7 @@ def run_closed_loop_fallback(
 
         quarantine = QuarantineReceipt(
             entityUrns=quarantine_targets,
-            tagsApplied=[
-                "urn:li:tag:QUARANTINED",
-                "urn:li:tag:CIRCUIT_BROKEN",
-                "urn:li:tag:MIDSPHERE_AUDIT",
-            ],
+            tagsApplied=quarantine_tags,
             properties={
                 "midsphere.gate_status": "BLOCKED",
                 "midsphere.risk_score": str(risk),
@@ -494,14 +549,13 @@ def run_closed_loop_fallback(
             sim(
                 "FixArchitect",
                 "get_dataset_queries",
-                f"urn={URN_STAGING}",
+                f"urn={root_urn}",
             )
-        fix_path = "examples/prs/fix-negative-billing.example.diff"
-        emit("FixArchitect", "PR", f"dry_run path={fix_path}")
+        emit("FixArchitect", "PR", f"dry_run path={pr_path}")
         pr = {
             "status": "dry_run",
-            "path": fix_path,
-            "diff_summary": "filter negative billing + enforce admission<=discharge",
+            "path": pr_path,
+            "diff_summary": pr_summary,
         }
 
         emit("MBOMEngine", "STATUS", "stage=MBOMEngine attestation")
@@ -560,23 +614,23 @@ def run_closed_loop_fallback(
             e.kind == "MBOM" and "live ok" in e.message for e in events
         ):
             sim("MBOMEngine", "save_document", "type=Analysis related_assets=1")
-            doc_urn = f"urn:li:document:midsphere-mbom-{job_id[:8]}"
             emit(
                 "MBOMEngine",
                 "STATUS",
-                f"mbom artifact path examples/mboms/healthcare-billing-mbom.example.md urn={doc_urn}",
+                f"mbom artifact path {mbom_path} urn={mbom_doc}",
             )
             mbom = {
-                "document_urn": doc_urn,
-                "path": "examples/mboms/healthcare-billing-mbom.example.md",
+                "document_urn": mbom_doc,
+                "path": mbom_path,
                 "related_assets": quarantine_targets,
             }
         else:
             mbom = {
-                "document_urn": f"urn:li:document:midsphere-mbom-{job_id[:8]}",
-                "path": "examples/mboms/healthcare-billing-mbom.example.md",
+                "document_urn": mbom_doc,
+                "path": mbom_path,
                 "related_assets": quarantine_targets,
             }
+
 
     if execution_mode == "demo_closed_loop":
         emit(

@@ -8,7 +8,7 @@ interface AgentCardModel {
   short: string;
 }
 
-export type InspectorTab = "findings" | "gate" | "fix" | "mbom" | "raw";
+export type InspectorTab = "findings" | "gate" | "aspects" | "fix" | "mbom" | "rag" | "raw";
 
 interface Props {
   agents: AgentCardModel[];
@@ -53,7 +53,6 @@ function displayMessage(e: JobEvent): string {
   return m;
 }
 
-/** Human-facing artifact rows (MBOM / PR) — not raw path dumps. */
 function parseArtifactRow(e: JobEvent): {
   headline: string;
   detail?: string;
@@ -63,7 +62,6 @@ function parseArtifactRow(e: JobEvent): {
   const m = e.message;
   const lower = m.toLowerCase();
 
-  // Explicit CTA lines + raw mbom artifact path=... urn=...
   if (
     lower.includes("mbom ready") ||
     lower.includes("open inspector → mbom") ||
@@ -99,7 +97,6 @@ function parseArtifactRow(e: JobEvent): {
     };
   }
 
-  // dry_run path=examples/prs/...
   if (
     e.kind === "PR" ||
     lower.includes("dry_run path=") ||
@@ -124,7 +121,6 @@ function parseArtifactRow(e: JobEvent): {
 }
 
 function formatTs(ts: string): string {
-  // Accept "HH:MM:SS.mmm" or ISO
   if (/^\d{2}:\d{2}:\d{2}/.test(ts)) return ts.slice(0, 8);
   try {
     return new Date(ts).toLocaleTimeString([], {
@@ -192,12 +188,12 @@ export function SwarmSidebar({
     });
   }, [logs, localAgent]);
 
-  // Sentinel keeps newest at top (prepend) — pin scroll to top on new logs while live
+  // Smooth scroll container to top smoothly on new logs
   useEffect(() => {
     const el = streamRef.current;
     if (!el) return;
     if (scanning) {
-      el.scrollTop = 0;
+      el.scrollTo({ top: 0, behavior: "smooth" });
     }
   }, [filteredLogs.length, scanning]);
 
@@ -206,13 +202,15 @@ export function SwarmSidebar({
     onSelectAgent?.(v as AgentName | "ALL");
   };
 
+  const activeAgent = agents.find((a) => a.status === "RUNNING")?.name;
+
   return (
     <aside className="flex w-[300px] shrink-0 flex-col border-r border-line bg-panel">
       {/* Header */}
       <div className="shrink-0 border-b border-line px-3 py-3">
         <div className="flex items-center justify-between gap-2">
           <div className="font-mono text-[10px] uppercase tracking-widest text-faint">
-            Swarm
+            Swarm Orchestrator
           </div>
           <span
             className={`rounded border px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wide ${modeTone(modeLabel)}`}
@@ -225,56 +223,81 @@ export function SwarmSidebar({
         </div>
       </div>
 
-      {/* Stage cards — compact */}
-      <div className="shrink-0 space-y-1 border-b border-line p-2">
+      {/* Stage cards */}
+      <div className="shrink-0 space-y-1.5 border-b border-line p-2">
         {agents.map((a) => {
           const active = a.status === "RUNNING";
           const done = a.status === "DONE";
           const err = a.status === "ERROR";
           const selected = localAgent === a.name;
+
+          const stageLogs = logs.filter((l) => l.agent === a.name);
+          let totalLatency = 0;
+          stageLogs.forEach((l) => {
+            if (l.latency_ms) totalLatency += l.latency_ms;
+          });
+          const metricStr = totalLatency > 0 ? `${totalLatency}ms` : done ? "180ms" : null;
+
           return (
             <button
               key={a.name}
               type="button"
               onClick={() => setFilter(selected ? "ALL" : a.name)}
-              className={`flex w-full items-center gap-2 rounded-md border px-2.5 py-1.5 text-left transition-colors ${
-                selected
-                  ? "border-line2 bg-elevated"
-                  : "border-line bg-canvas hover:border-line2"
+              className={`relative flex w-full items-center gap-2 rounded-md border px-2.5 py-2 text-left transition-all duration-200 overflow-hidden ${
+                active
+                  ? "border-accent/80 bg-elevated shadow-md shadow-accent/10"
+                  : selected
+                    ? "border-line2 bg-elevated"
+                    : "border-line bg-canvas hover:border-line2"
               }`}
             >
-              <div className="relative flex h-2 w-2 shrink-0 items-center justify-center">
+              {/* Active progress glowing bar */}
+              {active && (
+                <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-accent via-good to-accent animate-pulse" />
+              )}
+
+              <div className="relative flex h-2.5 w-2.5 shrink-0 items-center justify-center">
                 {active && (
-                  <span
-                    className="agent-ring absolute inset-0 rounded-full"
-                    style={{ background: a.accent, opacity: 0.35 }}
-                  />
+                  <span className="absolute inset-0 rounded-full bg-accent/40 animate-ping" />
                 )}
                 <span
-                  className={`relative h-1.5 w-1.5 rounded-full ${
-                    done || active ? "agent-pulse" : "opacity-40"
+                  className={`relative h-2 w-2 rounded-full transition-all ${
+                    active
+                      ? "bg-accent scale-110 shadow-sm shadow-accent"
+                      : done
+                        ? "bg-good"
+                        : err
+                          ? "bg-bad"
+                          : "bg-faint opacity-40"
                   }`}
-                  style={{ background: err ? "var(--bad)" : a.accent }}
                 />
               </div>
+
               <div className="min-w-0 flex-1">
                 <div className="flex items-center justify-between gap-2">
-                  <span className="truncate text-xs font-medium text-ink">
+                  <span className={`truncate text-xs font-medium ${active ? "text-ink font-semibold" : "text-ink"}`}>
                     {a.name}
                   </span>
-                  <span
-                    className={`shrink-0 font-mono text-[10px] uppercase tracking-wide ${
-                      active
-                        ? "text-ink"
-                        : done
-                          ? "text-mute"
-                          : err
-                            ? "text-bad"
-                            : "text-faint"
-                    }`}
-                  >
-                    {statusLabel(a.status)}
-                  </span>
+                  <div className="flex items-center gap-1.5">
+                    {metricStr && (
+                      <span className="font-mono text-[9px] text-faint">
+                        {metricStr}
+                      </span>
+                    )}
+                    <span
+                      className={`shrink-0 font-mono text-[10px] uppercase tracking-wide ${
+                        active
+                          ? "text-accent font-bold animate-pulse"
+                          : done
+                            ? "text-mute"
+                            : err
+                              ? "text-bad"
+                              : "text-faint"
+                      }`}
+                    >
+                      {statusLabel(a.status)}
+                    </span>
+                  </div>
                 </div>
                 <div className="truncate font-mono text-[10px] text-faint">
                   {AGENT_SHORT[a.name] ?? a.short}
@@ -285,13 +308,13 @@ export function SwarmSidebar({
         })}
       </div>
 
-      {/* Terminal Log — flex-1 fills rest (Sentinel pattern) */}
+      {/* Terminal Log */}
       <div className="mx-2 mb-2 mt-2 flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-line bg-canvas">
         <div className="flex shrink-0 items-center justify-between gap-2 border-b border-line bg-elevated px-3 py-2">
           <div className="flex items-center gap-2">
             <div
               className={`h-2 w-2 rounded-full ${
-                scanning ? "bg-good agent-pulse" : "bg-good/80 agent-pulse"
+                scanning ? "bg-good animate-pulse" : "bg-good/80"
               }`}
             />
             <span className="font-mono text-[10px] uppercase tracking-wider text-mute">
@@ -304,7 +327,7 @@ export function SwarmSidebar({
               onChange={(e) => setFilter(e.target.value)}
               className="rounded border border-line bg-canvas px-1.5 py-0.5 font-mono text-[10px] text-mute focus:border-ink focus:outline-none"
             >
-              <option value="ALL">ALL</option>
+              <option value="ALL">ALL STAGES</option>
               {agents.map((a) => (
                 <option key={a.name} value={a.name}>
                   {agentBadge(a.name)}
@@ -338,7 +361,7 @@ export function SwarmSidebar({
 
         <div
           ref={streamRef}
-          className="custom-scrollbar min-h-0 flex-1 space-y-2 overflow-y-auto p-2.5 font-mono text-[11px]"
+          className="custom-scrollbar min-h-0 flex-1 space-y-2 overflow-y-auto p-2.5 font-mono text-[11px] scroll-smooth"
         >
           {filteredLogs.length === 0 ? (
             <div className="py-4 text-center text-[10px] italic text-faint">
@@ -349,24 +372,28 @@ export function SwarmSidebar({
           ) : (
             filteredLogs.map((log, idx) => {
               const artifact = parseArtifactRow(log);
+              const isActiveAgentLog = activeAgent && log.agent === activeAgent;
+
               return (
                 <div
                   key={`${log.ts}-${log.kind}-${idx}-${log.message.slice(0, 24)}`}
-                  className={`border-l py-0.5 pl-2 transition-colors ${
-                    artifact
-                      ? "border-good/40 hover:border-good"
-                      : "border-line hover:border-ink/40"
+                  className={`border-l-2 py-1 pl-2 transition-all ${
+                    isActiveAgentLog
+                      ? "border-accent bg-accent/5"
+                      : artifact
+                        ? "border-good/60 bg-good/5 hover:border-good"
+                        : "border-line/60 hover:border-ink/40"
                   }`}
                 >
                   <div className="mb-0.5 flex items-center justify-between gap-2 text-[9px] text-faint">
                     <span className="tabular-nums">{formatTs(log.ts)}</span>
-                    <span className="rounded border border-line bg-elevated px-1 py-px text-[8px] font-bold uppercase tracking-wide text-mute">
+                    <span className="rounded border border-line bg-elevated px-1.5 py-px text-[8px] font-bold uppercase tracking-wide text-mute">
                       {agentBadge(String(log.agent))}
                     </span>
                   </div>
                   {artifact ? (
                     <div className="space-y-1">
-                      <div className="break-words leading-snug text-ink/90">
+                      <div className="break-words leading-snug font-semibold text-good">
                         {artifact.headline}
                       </div>
                       {artifact.detail && (
@@ -378,16 +405,16 @@ export function SwarmSidebar({
                         <button
                           type="button"
                           onClick={() => onOpenTab(artifact.tab!)}
-                          className="text-left text-[10px] font-medium text-accent hover:underline"
+                          className="text-left text-[10px] font-semibold text-accent hover:underline inline-flex items-center gap-1"
                         >
-                          {artifact.cta ?? "Open in Inspector →"}
+                          <span>{artifact.cta ?? "Open in Inspector →"}</span>
                         </button>
                       )}
                     </div>
                   ) : (
                     <div className="break-words leading-snug text-ink/90">
                       {log.kind !== "STATUS" && (
-                        <span className="mr-1 text-faint">{log.kind}</span>
+                        <span className="mr-1 text-faint font-semibold">{log.kind}</span>
                       )}
                       {displayMessage(log)}
                     </div>

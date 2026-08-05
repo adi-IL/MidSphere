@@ -3,26 +3,41 @@ import remarkGfm from "remark-gfm";
 import type { JobArtifact } from "../../lib/types";
 import { DEMO_DIFF, DEMO_MBOM } from "../../lib/demoJob";
 import { RiskScorecard } from "../score/RiskScorecard";
+import { RiskRadarChart } from "../score/RiskRadarChart";
 import { GatePreview } from "../inspect/GatePreview";
+import { DataHubAspectsViewer } from "../inspect/DataHubAspectsViewer";
+import { RagChat } from "../inspect/RagChat";
 
-type Tab = "findings" | "gate" | "fix" | "mbom" | "raw";
+type Tab = "findings" | "gate" | "aspects" | "fix" | "mbom" | "rag" | "raw";
 
 interface Props {
   job: JobArtifact;
   selectedUrn: string | null;
   tab: Tab;
   onTab: (t: Tab) => void;
+  onTripCircuit?: () => void;
+  onLiftQuarantine?: () => void;
 }
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "findings", label: "Findings" },
   { id: "gate", label: "Gate" },
+  { id: "aspects", label: "Aspects" },
   { id: "fix", label: "Fix" },
   { id: "mbom", label: "MBOM" },
+  { id: "rag", label: "Audit Q&A" },
   { id: "raw", label: "Raw" },
 ];
 
-export function InspectorDrawer({ job, selectedUrn, tab, onTab }: Props) {
+export function InspectorDrawer({
+  job,
+  selectedUrn,
+  tab,
+  onTab,
+  onTripCircuit,
+  onLiftQuarantine,
+}: Props) {
+
   const node = job.blast_radius.nodes.find((n) => n.urn === selectedUrn);
   const gate = job.quarantine?.gateStatus ?? "OPEN";
   const nodeBlocked =
@@ -58,7 +73,7 @@ export function InspectorDrawer({ job, selectedUrn, tab, onTab }: Props) {
         {node?.reason && (
           <p className="mt-1.5 text-2xs leading-relaxed text-faint">{node.reason}</p>
         )}
-        <div className="mt-3">
+        <div className="mt-3 grid grid-cols-1 gap-2">
           <RiskScorecard
             score={job.blast_radius.risk_score}
             impacted={job.blast_radius.nodes.filter((n) => n.impacted).length}
@@ -67,15 +82,15 @@ export function InspectorDrawer({ job, selectedUrn, tab, onTab }: Props) {
         </div>
       </div>
 
-      <div className="flex shrink-0 gap-0.5 overflow-x-auto border-b border-line px-2 py-1.5">
+      <div className="flex shrink-0 gap-0.5 overflow-x-auto border-b border-line px-2 py-1.5 custom-scrollbar">
         {TABS.map((t) => (
           <button
             key={t.id}
             type="button"
             onClick={() => onTab(t.id)}
-            className={`rounded px-2 py-1 font-mono text-[10px] uppercase tracking-wide ${
+            className={`rounded px-2 py-1 font-mono text-[10px] uppercase tracking-wide whitespace-nowrap ${
               tab === t.id
-                ? "bg-elevated text-ink"
+                ? "bg-elevated text-ink border border-line"
                 : "text-mute hover:text-ink"
             }`}
           >
@@ -84,22 +99,26 @@ export function InspectorDrawer({ job, selectedUrn, tab, onTab }: Props) {
         ))}
       </div>
 
-      <div className="flex-1 overflow-y-auto p-3 scrollbar-thin">
+      <div className="flex-1 min-h-0 overflow-y-auto p-3 scrollbar-thin flex flex-col">
         {tab === "findings" && (
-          <div className="space-y-2">
-            {job.findings.map((f) => (
-              <div
-                key={f.id}
-                className="rounded-md border border-line bg-canvas p-3"
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-xs font-medium text-ink">{f.type}</span>
-                  <span className="text-2xs text-mute">{f.severity}</span>
+
+          <div className="space-y-3">
+            <RiskRadarChart riskScore={job.blast_radius.risk_score} />
+            <div className="space-y-2">
+              {job.findings.map((f) => (
+                <div
+                  key={f.id}
+                  className="rounded-md border border-line bg-canvas p-3"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-medium text-ink">{f.type}</span>
+                    <span className="text-2xs text-mute">{f.severity}</span>
+                  </div>
+                  <p className="mt-1 text-xs text-mute">{f.rationale}</p>
+                  <p className="mt-2 font-mono text-2xs text-faint">{f.evidence}</p>
                 </div>
-                <p className="mt-1 text-xs text-mute">{f.rationale}</p>
-                <p className="mt-2 font-mono text-2xs text-faint">{f.evidence}</p>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         )}
 
@@ -126,6 +145,10 @@ export function InspectorDrawer({ job, selectedUrn, tab, onTab }: Props) {
               </p>
             )}
           </div>
+        )}
+
+        {tab === "aspects" && (
+          <DataHubAspectsViewer aspects={job.aspects} />
         )}
 
         {tab === "fix" && (
@@ -197,6 +220,8 @@ export function InspectorDrawer({ job, selectedUrn, tab, onTab }: Props) {
           </div>
         )}
 
+        {tab === "rag" && <RagChat job={job} />}
+
         {tab === "raw" && (
           <pre className="overflow-x-auto rounded-md border border-line bg-canvas p-3 font-mono text-2xs text-mute">
             {JSON.stringify(job, null, 2)}
@@ -207,25 +232,27 @@ export function InspectorDrawer({ job, selectedUrn, tab, onTab }: Props) {
       <div className="flex shrink-0 gap-2 border-t border-line p-3">
         <button
           type="button"
-          disabled={Boolean(job.quarantine)}
+          onClick={onTripCircuit}
+          disabled={Boolean(job.quarantine?.gateStatus === "BLOCKED")}
           title={
-            job.quarantine
-              ? "Circuit already tripped for this job"
-              : "Trip requires a full scan with auto_trip"
+            job.quarantine?.gateStatus === "BLOCKED"
+              ? "Circuit already tripped for this job (gated entities BLOCKED)"
+              : "Trip advisory circuit breaker and block gated entities"
           }
-          className="flex-1 rounded-md border border-line2 bg-elevated py-2 text-2xs font-medium text-ink disabled:cursor-not-allowed disabled:opacity-40"
+          className="flex-1 rounded-md border border-line2 bg-elevated py-2 text-2xs font-semibold text-ink disabled:cursor-not-allowed disabled:opacity-40 hover:enabled:border-bad/60 hover:enabled:text-bad transition-colors shadow-sm"
         >
           Trip circuit
         </button>
         <button
           type="button"
+          onClick={onLiftQuarantine}
           disabled={!job.quarantine || gate === "LIFTED"}
           title={
-            !job.quarantine
-              ? "No active quarantine on this job"
-              : "Lift clears advisory quarantine for gated entities"
+            !job.quarantine || gate === "LIFTED"
+              ? "No active BLOCKED quarantine to lift"
+              : "Lift clears advisory quarantine and unblocks gated entities"
           }
-          className="flex-1 rounded-md border border-line py-2 text-2xs font-medium text-mute disabled:cursor-not-allowed disabled:opacity-40 hover:enabled:text-ink"
+          className="flex-1 rounded-md border border-line py-2 text-2xs font-semibold text-mute disabled:cursor-not-allowed disabled:opacity-40 hover:enabled:border-good/60 hover:enabled:text-good transition-colors shadow-sm"
         >
           Lift quarantine
         </button>
@@ -233,3 +260,5 @@ export function InspectorDrawer({ job, selectedUrn, tab, onTab }: Props) {
     </aside>
   );
 }
+
+

@@ -6,7 +6,10 @@ from app.settings import get_settings
 
 
 def create_app() -> FastAPI:
+    import os
+    os.environ["ANTIGRAVITY_FORCE_FALLBACK"] = "true"
     settings = get_settings()
+
     app = FastAPI(
         title="MidSphere",
         description="Autonomous Context Command & Circuit-Breaker Engine",

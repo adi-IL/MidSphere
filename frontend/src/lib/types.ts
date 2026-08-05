@@ -40,6 +40,24 @@ export interface JobEvent {
   kind: "TOOL" | "FIND" | "SCORE" | "WRITE" | "PR" | "MBOM" | "ERROR" | "STATUS";
   message: string;
   payload?: unknown;
+  latency_ms?: number;
+  items_processed?: number;
+}
+
+export interface DataHubAspectPayload {
+  urn: string;
+  aspectName: string;
+  aspectValue: Record<string, unknown>;
+}
+
+export type ScenarioId = "healthcare" | "ecommerce" | "nyctaxi";
+
+export interface Scenario {
+  id: ScenarioId;
+  name: string;
+  subtitle: string;
+  rootUrn: string;
+  description: string;
 }
 
 export interface JobArtifact {
@@ -57,6 +75,7 @@ export interface JobArtifact {
   mutations_applied?: boolean;
   datahub_reachable?: boolean;
   gate_policy?: string;
+  aspects?: DataHubAspectPayload[];
 }
 
 export interface GateDecision {
@@ -81,3 +100,28 @@ export const AGENT_ACCENTS: Record<AgentName, string> = {
 
 export const DEFAULT_ROOT_URN =
   "urn:li:dataset:(urn:li:dataPlatform:sqlite,healthcare.raw_patients,PROD)";
+
+export const SCENARIOS: Scenario[] = [
+  {
+    id: "healthcare",
+    name: "Hospital (Quality Circuit)",
+    subtitle: "Negative billing cascade & date swaps",
+    rootUrn: "urn:li:dataset:(urn:li:dataPlatform:sqlite,healthcare.raw_patients,PROD)",
+    description: "Selective halt: mart_billing BLOCKED, mart_demographics OPEN.",
+  },
+  {
+    id: "ecommerce",
+    name: "E-Commerce (PII Governance)",
+    subtitle: "Un-governed customer PII & missing owner",
+    rootUrn: "urn:li:dataset:(urn:li:dataPlatform:snowflake,ecommerce.raw_orders,PROD)",
+    description: "Multi-platform Snowflake/Looker graph with un-governed PII tags.",
+  },
+  {
+    id: "nyctaxi",
+    name: "NYC Taxi (Pipeline Lag)",
+    subtitle: "Freshness violation & staging delay",
+    rootUrn: "urn:li:dataset:(urn:li:dataPlatform:bigquery,nyctaxi.raw_trips,PROD)",
+    description: "3-stage trip dataset with 72h pipeline latency breach.",
+  },
+];
+

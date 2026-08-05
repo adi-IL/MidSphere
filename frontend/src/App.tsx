@@ -7,9 +7,11 @@ import {
 import { InspectorDrawer } from "./components/layout/InspectorDrawer";
 import { LoadingScreen } from "./components/layout/LoadingScreen";
 import { LineageCanvas } from "./components/graph/LineageCanvas";
-import { loadCommandJob, fetchHealth, createJob } from "./lib/api";
-import type { AgentName, AgentStatus, JobArtifact, JobEvent } from "./lib/types";
-import { AGENT_ACCENTS, DEFAULT_ROOT_URN } from "./lib/types";
+import { loadCommandJob, fetchHealth, createJob, liftQuarantineJob } from "./lib/api";
+
+import type { AgentName, AgentStatus, JobArtifact, JobEvent, ScenarioId } from "./lib/types";
+import { AGENT_ACCENTS, DEFAULT_ROOT_URN, SCENARIOS } from "./lib/types";
+import { DEMO_JOB, ECOMMERCE_JOB, NYCTAXI_JOB } from "./lib/demoJob";
 
 const AGENTS: AgentName[] = [
   "ContextSentinel",
@@ -70,8 +72,10 @@ function makeLog(
   agent: string,
   kind: JobEvent["kind"],
   message: string,
+  latency_ms?: number,
+  items_processed?: number,
 ): JobEvent {
-  return { ts: nowTs(), agent, kind, message };
+  return { ts: nowTs(), agent, kind, message, latency_ms, items_processed };
 }
 
 function modeLabel(mode?: string): string {
@@ -111,6 +115,7 @@ export default function App() {
   const [tab, setTab] = useState<InspectorTab>("findings");
   const [scanning, setScanning] = useState(false);
   const [selectedAgent, setSelectedAgent] = useState<AgentName | "ALL">("ALL");
+  const [activeScenario, setActiveScenario] = useState<ScenarioId>("healthcare");
   /** Sentinel-style newest-first live log */
   const [logs, setLogs] = useState<JobEvent[]>([]);
   const [statuses, setStatuses] = useState<Record<AgentName, AgentStatus>>(
@@ -169,6 +174,16 @@ export default function App() {
     };
   }, [applyJobArtifact, seedLogsFromJob, clearWaitTimer]);
 
+  const onSelectScenario = useCallback((id: ScenarioId) => {
+    setActiveScenario(id);
+    let targetJob = DEMO_JOB;
+    if (id === "ecommerce") targetJob = ECOMMERCE_JOB;
+    if (id === "nyctaxi") targetJob = NYCTAXI_JOB;
+
+    applyJobArtifact(targetJob, "demo");
+    seedLogsFromJob(targetJob);
+  }, [applyJobArtifact, seedLogsFromJob]);
+
   /**
    * Stream completed job events stage-by-stage into the terminal (Sentinel
    * sequential addLog after each agent step). Backend is still one POST;
@@ -202,7 +217,7 @@ export default function App() {
 
         st[agent] = "DONE";
         setStatuses({ ...st });
-        addLog(makeLog(agent, "STATUS", `stage=${agent} done`));
+        addLog(makeLog(agent, "STATUS", `stage=${agent} done`, 180, 4));
 
         // Friendly CTA after MBOM / Fix stages so operators know where to review
         if (agent === "MBOMEngine" && j.mbom) {
@@ -211,6 +226,8 @@ export default function App() {
               "MBOMEngine",
               "MBOM",
               `mbom artifact path=${j.mbom.path ?? "examples/mboms/healthcare-billing-mbom.example.md"} urn=${j.mbom.document_urn ?? ""}`,
+              120,
+              1,
             ),
           );
           addLog(
@@ -227,6 +244,8 @@ export default function App() {
               "FixArchitect",
               "PR",
               `dry_run path=${j.pr.path ?? "examples/prs/fix-negative-billing.example.diff"}`,
+              150,
+              1,
             ),
           );
         }
@@ -240,10 +259,12 @@ export default function App() {
           `job complete risk=${j.blast_radius.risk_score} findings=${j.findings.length}`,
         ),
       );
+      setJob(j);
       setStatuses(doneStatuses());
     },
     [addLog],
   );
+
 
   const onScan = useCallback(async () => {
     cancelRef.current = false;
@@ -278,11 +299,14 @@ export default function App() {
         : prev,
     );
 
+    const scenarioSpec = SCENARIOS.find((s) => s.id === activeScenario);
+    const targetUrn = scenarioSpec?.rootUrn || job?.root_urn || DEFAULT_ROOT_URN;
+
     addLog(
       makeLog(
         "ContextSentinel",
         "STATUS",
-        "POST /v1/jobs · closed loop submitted",
+        `POST /v1/jobs · target=${activeScenario}`,
       ),
     );
     addLog(
@@ -314,7 +338,7 @@ export default function App() {
 
     try {
       const created = await createJob({
-        root_urn: job?.root_urn ?? DEFAULT_ROOT_URN,
+        root_urn: targetUrn,
         mode: "full",
         auto_trip: true,
       });
@@ -335,28 +359,27 @@ export default function App() {
         // Reset soft-progress; stream real events stage-by-stage
         setStatuses(idleStatuses());
         await streamJobIntoTerminal(created);
-      } else if (job) {
+      } else {
+        let targetJob = DEMO_JOB;
+        if (activeScenario === "ecommerce") targetJob = ECOMMERCE_JOB;
+        if (activeScenario === "nyctaxi") targetJob = NYCTAXI_JOB;
         const demo: JobArtifact = {
-          ...job,
-          job_id: `${job.job_id}-rerun-${Date.now()}`,
+          ...targetJob,
+          job_id: `${targetJob.job_id}-rerun-${Date.now()}`,
           status: "succeeded",
         };
         addLog(
           makeLog(
             "ContextSentinel",
             "STATUS",
-            "API unavailable · replaying local demo artifact",
+            `API unavailable · replaying ${activeScenario} demo artifact`,
           ),
         );
         applyJobArtifact(demo, "demo");
         setStatuses(idleStatuses());
         await streamJobIntoTerminal(demo);
-      } else {
-        addLog(
-          makeLog("ContextSentinel", "ERROR", "scan failed · no job returned"),
-        );
-        setStatuses(idleStatuses());
       }
+
     } catch (e) {
       clearWaitTimer();
       const msg = e instanceof Error ? e.message : "unknown error";
@@ -367,12 +390,25 @@ export default function App() {
       setScanning(false);
     }
   }, [
+    activeScenario,
     addLog,
     applyJobArtifact,
     clearWaitTimer,
     job,
     streamJobIntoTerminal,
   ]);
+
+  // Keyboard shortcut listener for Cmd+Enter / Ctrl+Enter
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+        e.preventDefault();
+        if (!scanning) void onScan();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onScan, scanning]);
 
   const onClearLogs = useCallback(() => {
     setLogs([]);
@@ -389,6 +425,84 @@ export default function App() {
     [statuses],
   );
 
+  const onTripCircuit = useCallback(() => {
+    if (!job) return;
+    const targetUrn = job.blast_radius.nodes.find((n) => n.impacted)?.urn ?? job.root_urn;
+    setJob((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        quarantine: {
+          entityUrns: [targetUrn],
+          tagsApplied: ["urn:li:tag:QUARANTINED", "urn:li:tag:CIRCUIT_BROKEN", "urn:li:tag:MIDSPHERE_AUDIT"],
+          properties: {
+            "midsphere.gate_status": "BLOCKED",
+            "midsphere.risk_score": String(prev.blast_radius.risk_score),
+            "midsphere.job_id": prev.job_id,
+          },
+          incidentUrn: undefined,
+          gateStatus: "BLOCKED",
+        },
+        blast_radius: {
+          ...prev.blast_radius,
+          nodes: prev.blast_radius.nodes.map((n) =>
+            n.urn === targetUrn || n.hop > 0 ? { ...n, impacted: true } : n,
+          ),
+        },
+      };
+    });
+    addLog(
+      makeLog(
+        "CircuitBreaker",
+        "WRITE",
+        `manual circuit tripped tag=QUARANTINED gate_status=BLOCKED urn=${targetUrn}`,
+      ),
+    );
+  }, [job, addLog]);
+
+  const onLiftQuarantine = useCallback(async () => {
+    if (!job) return;
+    try {
+      if (source === "api") {
+        await liftQuarantineJob(job.job_id);
+      }
+    } catch {
+      // Offline fallback
+    }
+    setJob((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        quarantine: prev.quarantine
+          ? {
+              ...prev.quarantine,
+              entityUrns: [],
+              gateStatus: "LIFTED",
+              tagsApplied: prev.quarantine.tagsApplied ?? [],
+              properties: {
+                ...prev.quarantine.properties,
+                "midsphere.gate_status": "LIFTED",
+              },
+            }
+          : null,
+        blast_radius: {
+          ...prev.blast_radius,
+          nodes: prev.blast_radius.nodes.map((n) => ({
+            ...n,
+            impacted: false,
+          })),
+        },
+      };
+    });
+    addLog(
+      makeLog(
+        "CircuitBreaker",
+        "STATUS",
+        `quarantine lifted for job=${job.job_id.slice(0, 8)} gate_status=LIFTED`,
+      ),
+    );
+  }, [job, source, addLog]);
+
   if (!job) {
     return <LoadingScreen status={bootStatus} />;
   }
@@ -400,6 +514,8 @@ export default function App() {
         source={source}
         risk={job.blast_radius.risk_score}
         scanning={scanning}
+        activeScenario={activeScenario}
+        onSelectScenario={onSelectScenario}
         onScan={() => void onScan()}
       />
       <div className="flex min-h-0 flex-1">
@@ -419,6 +535,7 @@ export default function App() {
             nodes={job.blast_radius.nodes}
             selectedUrn={selectedUrn}
             onSelect={setSelectedUrn}
+            activeScenarioLabel={SCENARIOS.find((s) => s.id === activeScenario)?.name}
           />
         </main>
         <InspectorDrawer
@@ -426,8 +543,12 @@ export default function App() {
           selectedUrn={selectedUrn}
           tab={tab}
           onTab={setTab}
+          onTripCircuit={onTripCircuit}
+          onLiftQuarantine={onLiftQuarantine}
         />
       </div>
     </div>
   );
 }
+
+
