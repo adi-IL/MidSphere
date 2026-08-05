@@ -81,9 +81,13 @@ Cloud Run image installs `uv`/`uvx` for this path. If GMS is down, the server ma
 
 ### 3.2 Tools
 
+Primary closed-loop surface (docs + demos):
+
 Read: `search`, `get_entities`, `list_schema_fields`, `get_lineage`, `get_lineage_paths_between`, `get_dataset_queries`
 
 Write: `add_tags`, `remove_tags`, `add_structured_properties`, `save_document`
+
+Full client allowlist also includes official tools MidSphere may call when useful: `remove_structured_properties`, `search_documents`, `update_description` (see `REAL_MCP_TOOLS` in `midsphere_mcp/client.py`). Never invent names outside that set.
 
 ### 3.3 GMS probe helper
 
@@ -117,8 +121,10 @@ Module: `gate/service.py`
 | POST | `/v1/jobs` | Run closed loop |
 | GET | `/v1/jobs/latest` | Latest job |
 | GET | `/v1/jobs/{id}` | Job by id |
-| POST | `/v1/jobs/{id}/lift` | Lift quarantine |
-| GET | `/v1/gate/{urn}` | Gate decision |
+| POST | `/v1/jobs/{id}/lift` | Lift quarantine (job-local; optional live MCP when configured) |
+| POST | `/v1/jobs/{id}/trip` | Re-run closed loop with `auto_trip` for same root |
+| GET | `/v1/gate/{urn}` | Gate decision against latest job |
+| GET | `/v1/gate-default-blocked` | Convenience gate for healthcare billing URN |
 
 ## 7. Deploy isolation
 

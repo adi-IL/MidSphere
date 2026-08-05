@@ -1,49 +1,56 @@
 # frontend/
 
-MidSphere Command Center — React 18 + Vite + TypeScript.
+MidSphere Command Center — React 18 + Vite + TypeScript + Tailwind + React Flow.
 
-**Deploy target:** Vercel only (`vercel` / `vercel --prod` from this directory).
+**Deploy target:** Vercel project `midsphere` only (from this directory / Actions).
 
-## Planned layout
+## Layout (shipping)
 
 ```
 frontend/
 ├── src/
-│   ├── app/
+│   ├── App.tsx                 # Command Center orchestration
 │   ├── components/
-│   │   ├── layout/      # TopBar, SwarmSidebar, InspectorDrawer
-│   │   ├── graph/       # LineageCanvas, nodes, edges
-│   │   ├── swarm/       # AgentCard, TelemetryTerminal
-│   │   ├── inspect/     # Findings, Gate, Diff, MBOM tabs
-│   │   ├── score/       # RiskScorecard
-│   │   └── scan/        # TargetPicker
-│   ├── lib/             # tokens, API client, artifact types
-│   └── pages/           # CommandCenter, JobHistory, Settings, DemoMode
-├── package.json         # (to be added)
-└── vite.config.ts       # (to be added)
+│   │   ├── layout/             # TopBar, SwarmSidebar, InspectorDrawer, LoadingScreen
+│   │   ├── graph/              # LineageCanvas, CustomNode/Edge, TimeTravelBar
+│   │   ├── inspect/            # GatePreview, RagChat, DataHubAspectsViewer
+│   │   └── score/              # RiskScorecard, RiskRadarChart
+│   ├── lib/                    # api.ts, demoJob.ts, types.ts
+│   ├── index.css
+│   └── main.tsx
+├── vercel.json                 # vite + SPA rewrites; git.deploymentEnabled=false
+├── package.json
+└── vite.config.ts
 ```
 
 ## Design authority
 
-Root [DESIGN.md](../DESIGN.md) — Deep Slate palette, three-pane layout, real MCP names in telemetry.
+Root [DESIGN.md](../DESIGN.md) — monochrome Command Center, Activity terminal honesty, real MCP names.
 
-## Local (placeholder)
-
-```bash
-# After implementation:
-# npm install && npm run dev
-# deploy: vercel --prod
-```
-
-## Commands
+## Local
 
 ```bash
+cd frontend
 npm install
-npm run dev      # http://localhost:5173
+npm run dev      # http://localhost:5173 (proxies API to :8000)
+npm run lint
 npm run build
-vercel --prod    # project: midsphere (link once)
 ```
 
-`VITE_API_BASE_URL` optional — empty uses same-origin / Vite proxy to backend.
+| Env | Purpose |
+| --- | --- |
+| `VITE_API_BASE_URL` | Production Cloud Run base (see `.env.production`) |
+| empty / local | Vite proxy → `http://127.0.0.1:8000` |
 
-Status: **Command Center v0** (demo job offline; live API when backend up).
+## Features (shipping)
+
+- Multi-scenario offline demos (healthcare / ecommerce / nyctaxi) with honest `sim` telemetry
+- Live jobs via `POST /v1/jobs` when API is up
+- Trip / Lift wired to backend for API jobs; demo path logs `sim` STATUS only
+- Forensic Time Travel scrubber (narrative, not GMS history) — `docs/FORENSIC_TIME_TRAVEL.md`
+
+## Deploy
+
+GitHub Actions `deploy-frontend.yml` on `frontend/**` changes (durable `VERCEL_TOKEN`). See [`.github/DEPLOY.md`](../.github/DEPLOY.md).
+
+Status: **shipping Command Center** (monochrome; multi-scenario; Antigravity-aware labels).

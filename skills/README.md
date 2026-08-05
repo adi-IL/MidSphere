@@ -7,6 +7,6 @@ Drafts for open-source contribution to [`datahub-project/datahub-skills`](https:
 | `datahub-circuit-breaker/` | Quarantine, lift, gate status, advisory tags/properties |
 | `datahub-quality-circuit/` | Healthcare-style quality cascade + selective halt + MBOM |
 
-Each skill must include official-style YAML frontmatter (`name`, `description`, `allowed-tools`, …), approval-before-write, and tier checks (Cloud-only incidents). See root [AGENTS.md](../AGENTS.md) §9.
+Each skill includes official-style YAML frontmatter (`name`, `description`, …), approval-before-write guidance, and tier checks (Cloud-only incidents — no invented MCP `create_incident`). See root [AGENTS.md](../AGENTS.md).
 
-Status: **stubs**. Full `SKILL.md` content lands with implementation.
+Status: **draft skills ready for contribution review** (`SKILL.md` + templates + references).

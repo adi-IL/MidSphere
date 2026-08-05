@@ -29,6 +29,11 @@ Notable shipping changes. Punchlines stay consistent with README / AGENTS:
 
 - Video script: `examples/video/DEMO_VIDEO_SCRIPT.md`
 - CI/CD path filters: `.github/DEPLOY.md`
+- **Vercel Actions auth:** durable dashboard Access Token (`VERCEL_TOKEN`, no expiration); weekly keepalive workflow; `git.deploymentEnabled=false` so Actions owns production deploys. Do **not** store CLI OAuth (`vca_`) tokens from `auth.json`.
+
+### API completeness (vs early scaffold docs)
+
+- `POST /v1/jobs/{id}/trip` and `GET /v1/gate-default-blocked` are shipping routes (Command Center Trip + convenience gate).
 
 ---
 

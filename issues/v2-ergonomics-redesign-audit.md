@@ -1,5 +1,7 @@
 # v2-ergonomics-redesign Branch Audit
 
+> **Historical.** Issues in this audit were addressed on the merge path into `main` (scenario parity, `sim` telemetry, trip/lift honesty, Antigravity primary, force-fallback removal). Treat this file as a record of the audit, not as current open defects. Current contracts: root `AGENTS.md` / `CHANGELOG.md`.
+
 Branch under audit: `v2-ergonomics-redesign`
 
 Commit audited: `741f0266eca40c1317e3c9d5dedc0fb88221dff9`

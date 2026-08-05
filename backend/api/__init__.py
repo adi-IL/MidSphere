@@ -1,1 +1,1 @@
-"""HTTP + SSE API surface for jobs and Consumer Gate."""
+"""HTTP REST API surface for jobs and Consumer Gate (/v1/*)."""

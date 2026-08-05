@@ -1,35 +1,63 @@
 # backend/
 
-FastAPI + Antigravity multi-agent swarm for MidSphere.
+FastAPI closed-loop API for MidSphere.
 
-**Deploy target:** GCP Cloud Run only. Do not package `frontend/` here.
+**Deploy target:** GCP Cloud Run `midsphere-api` only. Do not package `frontend/` here.
 
-## Planned layout
+## Layout (shipping)
 
 ```
 backend/
-├── app/           # FastAPI entry (main, lifespan, settings)
-├── api/           # REST + SSE routes (/v1/jobs, /v1/gate, /v1/health)
-├── agents/        # ContextSentinel, CascadeAnalyzer, CircuitBreaker,
-│                  # FixArchitect, MBOMEngine
-├── gate/          # Consumer Gate (OPEN | BLOCKED | LIFTED)
-├── mcp/           # MCP client wrapper (real tool names)
-├── models/        # Pydantic job/finding/blast/quarantine artifacts
-├── pyproject.toml # (to be added)
-└── Dockerfile     # (to be added)
+├── app/              # FastAPI entry (main, settings)
+├── api/              # REST /v1/* (jobs, gate, health, trip, lift)
+├── agents/           # pipeline, antigravity_runner, stage_tools
+├── gate/             # Consumer Gate policy (OPEN | BLOCKED | LIFTED)
+├── midsphere_mcp/    # GMS probe + official mcp-server-datahub client
+├── models/           # Pydantic job / finding / blast / quarantine artifacts
+├── tests/            # pytest (honest sim telemetry + gate)
+├── requirements.txt
+├── Dockerfile
+└── cloudrun-env.yaml # non-secret Cloud Run env (mutations off by default)
 ```
 
 ## Contracts
 
-See root [AGENTS.md](../AGENTS.md) for tool maps, mutation flags, and job schema.
+Root [AGENTS.md](../AGENTS.md) is the ops source of truth: Antigravity primary path, MCP tool names, job artifact schema, deploy isolation.
 
-## Local (placeholder)
+## Local
 
 ```bash
-# After implementation:
-# uv sync
-# export $(grep -v '^#' ../.env | xargs)
-# uvicorn app.main:app --reload --port 8000
+cd backend
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+export ANTIGRAVITY_ENABLED=true   # or false for deterministic fallback only
+export USE_OFFICIAL_MCP=true
+# optional: DATAHUB_GMS_URL, DATAHUB_GMS_TOKEN, TOOLS_IS_MUTATION_ENABLED
+# Vertex: GOOGLE_CLOUD_PROJECT + ADC
+PYTHONPATH=. uvicorn app.main:app --reload --port 8000
 ```
 
-Status: **scaffold only**.
+Tests (deterministic):
+
+```bash
+ANTIGRAVITY_ENABLED=false USE_OFFICIAL_MCP=false python -m pytest tests/ -q
+```
+
+## API surface
+
+| Method | Path |
+| --- | --- |
+| GET | `/v1/health` |
+| POST | `/v1/jobs` |
+| GET | `/v1/jobs/latest` |
+| GET | `/v1/jobs/{id}` |
+| POST | `/v1/jobs/{id}/lift` |
+| POST | `/v1/jobs/{id}/trip` |
+| GET | `/v1/gate/{urn}` |
+| GET | `/v1/gate-default-blocked` |
+
+## Deploy
+
+Path-filtered GitHub Actions → Cloud Run via Workload Identity Federation. See [`.github/DEPLOY.md`](../.github/DEPLOY.md).
+
+Status: **shipping** (Antigravity primary + deterministic fallback).

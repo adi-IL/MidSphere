@@ -122,7 +122,9 @@ Healthcare sample (local DataHub quickstart + dataset scripts):
 | GET | `/v1/jobs/latest` | Latest job |
 | GET | `/v1/jobs/{id}` | Job by id |
 | POST | `/v1/jobs/{id}/lift` | Lift quarantine |
+| POST | `/v1/jobs/{id}/trip` | Re-run closed loop with auto-trip |
 | GET | `/v1/gate/{urn}` | Consumer Gate decision |
+| GET | `/v1/gate-default-blocked` | Convenience gate for demo billing URN |
 
 ## CI/CD (GitHub Actions)
 
@@ -132,8 +134,9 @@ Pushes to `main` auto-deploy by path:
 | --- | --- | --- |
 | `frontend/**` | Deploy Frontend | Vercel production (`midsphere`) |
 | `backend/**` | Deploy Backend | Cloud Run `midsphere-api` |
+| schedule (Mon) | Vercel Token Keepalive | `vercel whoami` (durable token health) |
 
-Also: `CI` runs typecheck + pytest on PRs. Setup secrets and notes: [`.github/DEPLOY.md`](./.github/DEPLOY.md).
+Also: `CI` runs typecheck + pytest on PRs. Durable `VERCEL_TOKEN` + secrets: [`.github/DEPLOY.md`](./.github/DEPLOY.md).
 
 ## Repository layout
 
@@ -155,6 +158,9 @@ AGENTS.md          Ops contracts
 1. [ARCHITECTURE.md](./ARCHITECTURE.md)
 2. [DESIGN.md](./DESIGN.md)
 3. [AGENTS.md](./AGENTS.md)
+4. [CHANGELOG.md](./CHANGELOG.md)
+5. [`.github/DEPLOY.md`](./.github/DEPLOY.md)
+6. [docs/FORENSIC_TIME_TRAVEL.md](./docs/FORENSIC_TIME_TRAVEL.md)
 
 ## License
 

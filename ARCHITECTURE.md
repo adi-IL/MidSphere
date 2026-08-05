@@ -172,7 +172,7 @@ run_closed_loop
           → execution_mode=demo_closed_loop | live_mcp
     │
     ▼
-JobArtifact JSON + SSE/UI telemetry
+JobArtifact JSON (polled by UI; no SSE stream in shipping API)
 ```
 
 Telemetry honesty: Antigravity path emits `TOOL` for `midsphere_*` custom tools. Live MCP uses real unprefixed names. Offline demo steps use `STATUS` lines prefixed with `sim `.
@@ -484,23 +484,28 @@ Contribute via PR to `datahub-project/datahub-skills` with Conventional Commits.
 
 ---
 
-## 10. Repo layout (target)
+## 10. Repo layout (shipping)
 
 ```
 midsphere/   # or repo root
 ├── frontend/                 # React 18 + Vite + TS → Vercel
-├── backend/                  # FastAPI + deterministic pipeline + optional Antigravity + MCP → Cloud Run
-│   ├── agents/               # five agent modules + typed artifacts
+├── backend/                  # FastAPI + Antigravity primary + fallback + MCP → Cloud Run
+│   ├── agents/               # pipeline, antigravity_runner, stage_tools
 │   ├── gate/                 # consumer gate
-│   ├── mcp/                  # MCP client wrapper
-│   └── api/                  # REST + SSE
+│   ├── midsphere_mcp/        # GMS probe + official mcp-server-datahub client
+│   ├── models/               # Pydantic artifacts
+│   └── api/                  # REST /v1/* (jobs, gate, health)
 ├── skills/                   # OSS contribution drafts
 │   ├── datahub-circuit-breaker/
-│   └── datahub-ml-audit/     # or datahub-quality-circuit
-├── examples/                 # judge offline: MBOMs, PR diffs, screenshots
+│   └── datahub-quality-circuit/
+├── examples/                 # judge offline: MBOMs, PR diffs, video script
 ├── scripts/                  # bootstrap tags/properties, healthcare load
-├──                  # architecture redesign (this doc set)
+├── docs/                     # FORENSIC_TIME_TRAVEL and long-form notes
+├── .github/                  # path-filtered CI/CD + DEPLOY.md
+├── ARCHITECTURE.md
+├── DESIGN.md
 ├── AGENTS.md                 # ops contracts
+├── CHANGELOG.md
 ├── LICENSE                   # Apache-2.0
 └── README.md                 # judge-facing
 ```
@@ -539,7 +544,7 @@ midsphere/   # or repo root
 | Version | Notes |
 | --- | --- |
 | Legacy junior blueprint / init | Strong thesis; incorrect MCP/incident/datapack/judging details |
-| **ARCHITECTURE.md (this file)** | Aligned with shipping deterministic orchestrator + optional Gemini summary; selective healthcare demo; advisory quarantine + Consumer Gate |
+| **ARCHITECTURE.md (this file)** | Shipping: Antigravity primary + five `midsphere_*` tools; deterministic fallback; official MCP; selective multi-scenario demos; advisory quarantine + Consumer Gate; REST job artifact (no SSE) |
 
 ---
 
