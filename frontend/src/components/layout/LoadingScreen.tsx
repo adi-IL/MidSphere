@@ -3,8 +3,8 @@ interface Props {
   status?: string;
 }
 
-/** Full-viewport boot screen — monochrome, minimal. */
-export function LoadingScreen({ status = "Connecting…" }: Props) {
+/** Full-viewport boot screen  -  monochrome, minimal. */
+export function LoadingScreen({ status = "Connecting..." }: Props) {
   return (
     <div className="relative flex h-full w-full flex-col items-center justify-center overflow-hidden bg-canvas text-ink">
       <div

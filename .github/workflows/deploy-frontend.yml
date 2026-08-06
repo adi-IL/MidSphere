@@ -2,9 +2,9 @@
 # Path-filtered monorepo job (official Vercel GitHub Actions pattern).
 #
 # Required secrets (all three):
-#   VERCEL_TOKEN       — durable account access token (NOT a CLI OAuth/login token)
-#   VERCEL_ORG_ID      — team_… from frontend/.vercel/project.json
-#   VERCEL_PROJECT_ID  — prj_… from frontend/.vercel/project.json
+#   VERCEL_TOKEN        -  durable account access token (NOT a CLI OAuth/login token)
+#   VERCEL_ORG_ID       -  team_... from frontend/.vercel/project.json
+#   VERCEL_PROJECT_ID   -  prj_... from frontend/.vercel/project.json
 #
 # Create VERCEL_TOKEN at https://vercel.com/account/tokens
 #   Name: midsphere-github-actions

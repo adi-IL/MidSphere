@@ -95,7 +95,7 @@ This project:
 | `GCP_SERVICE_ACCOUNT` | `sentinel-deployer@project-dace7531-ac79-4f81-bd2.iam.gserviceaccount.com` |
 | `GCP_PROJECT_ID` (optional) | `project-dace7531-ac79-4f81-bd2` |
 
-WIF provider attribute condition must allow `adi-IL/MidSphere-datahb`.
+WIF provider attribute condition must allow `adi-IL/MidSphere` (legacy `adi-IL/MidSphere-datahb` may remain during redirect).
 
 Deploy service account roles already in use: `run.admin`, `cloudbuild.builds.editor`, `artifactregistry.admin`, `storage.admin`, `iam.serviceAccountUser`.
 

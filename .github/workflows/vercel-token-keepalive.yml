@@ -43,4 +43,4 @@ jobs:
             echo "::error::Then: gh secret set VERCEL_TOKEN"
             exit 1
           fi
-          echo "Token OK — last-active bumped for CI durability."
+          echo "Token OK  -  last-active bumped for CI durability."

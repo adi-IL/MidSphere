@@ -42,7 +42,7 @@ def evaluate_from_job(urn: str, job: JobArtifact | None) -> GateDecision:
         # Lifted or never in active set after reverse
         if q.gateStatus == "LIFTED" or urn not in q.entityUrns:
             status = "LIFTED" if q.gateStatus == "LIFTED" and not q.entityUrns else "OPEN"
-            # After selective lift of this urn, OPEN/LIFTED — never BLOCKED
+            # After selective lift of this urn, OPEN/LIFTED  -  never BLOCKED
             if urn not in q.entityUrns:
                 return GateDecision(
                     urn=urn,

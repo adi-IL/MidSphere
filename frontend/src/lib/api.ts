@@ -3,7 +3,7 @@ import { DEMO_JOB } from "./demoJob";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "";
 
-/** Avoid infinite "Loading MidSphere…" on hung Cloud Run cold starts. */
+/** Avoid infinite "Loading MidSphere..." on hung Cloud Run cold starts. */
 const DEFAULT_TIMEOUT_MS = 12_000;
 
 async function tryJson<T>(
@@ -43,7 +43,7 @@ export async function createJob(body: {
   mode?: string;
   auto_trip?: boolean;
 }): Promise<JobArtifact | null> {
-  // Closed-loop Antigravity jobs can take 30–90s
+  // Closed-loop Antigravity jobs can take 30-90s
   const ctrl = new AbortController();
   const t = window.setTimeout(() => ctrl.abort(), 120_000);
   try {
@@ -85,7 +85,7 @@ export async function liftQuarantineJob(jobId: string): Promise<JobArtifact | nu
 }
 
 export async function tripJob(jobId: string): Promise<JobArtifact | null> {
-  // trip re-runs full closed loop (Antigravity can take 30–90s)
+  // trip re-runs full closed loop (Antigravity can take 30-90s)
   const ctrl = new AbortController();
   const t = window.setTimeout(() => ctrl.abort(), 120_000);
   try {

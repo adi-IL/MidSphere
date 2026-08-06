@@ -94,7 +94,7 @@ export const DEMO_JOB: JobArtifact = {
       ts: "14:02:01.012",
       agent: "ContextSentinel",
       kind: "STATUS",
-      message: "sim get_lineage urn=…raw_patients max_hops=2 downstream 240ms (demo artifact)",
+      message: "sim get_lineage urn=...raw_patients max_hops=2 downstream 240ms (demo artifact)",
       latency_ms: 240,
       items_processed: 4,
     },
@@ -102,7 +102,7 @@ export const DEMO_JOB: JobArtifact = {
       ts: "14:02:01.310",
       agent: "ContextSentinel",
       kind: "FIND",
-      message: "NEGATIVE_BILLING severity=HIGH entity=…mart_billing",
+      message: "NEGATIVE_BILLING severity=HIGH entity=...mart_billing",
     },
     {
       ts: "14:02:03.400",
@@ -272,7 +272,7 @@ export const ECOMMERCE_JOB: JobArtifact = {
       ts: "14:10:01.000",
       agent: "ContextSentinel",
       kind: "STATUS",
-      message: "sim get_lineage urn=…raw_customers max_hops=2 310ms (demo artifact)",
+      message: "sim get_lineage urn=...raw_customers max_hops=2 310ms (demo artifact)",
       latency_ms: 310,
       items_processed: 4,
     },
@@ -280,7 +280,7 @@ export const ECOMMERCE_JOB: JobArtifact = {
       ts: "14:10:01.300",
       agent: "ContextSentinel",
       kind: "FIND",
-      message: "UNGOVERNED_PII severity=CRITICAL entity=…mart_customer_360",
+      message: "UNGOVERNED_PII severity=CRITICAL entity=...mart_customer_360",
     },
     {
       ts: "14:10:02.100",
@@ -450,7 +450,7 @@ export const NYCTAXI_JOB: JobArtifact = {
       ts: "14:15:01.000",
       agent: "ContextSentinel",
       kind: "STATUS",
-      message: "sim get_lineage urn=…raw_yellow_trips max_hops=2 220ms (demo artifact)",
+      message: "sim get_lineage urn=...raw_yellow_trips max_hops=2 220ms (demo artifact)",
       latency_ms: 220,
       items_processed: 4,
     },
@@ -458,7 +458,7 @@ export const NYCTAXI_JOB: JobArtifact = {
       ts: "14:15:01.250",
       agent: "ContextSentinel",
       kind: "FIND",
-      message: "FRESHNESS_VIOLATION severity=HIGH entity=…mart_monthly_revenue",
+      message: "FRESHNESS_VIOLATION severity=HIGH entity=...mart_monthly_revenue",
     },
     {
       ts: "14:15:02.000",
@@ -534,7 +534,7 @@ export const NYCTAXI_JOB: JobArtifact = {
   ],
 };
 
-/** Healthcare fix diff — matches examples/prs/fix-negative-billing.example.diff */
+/** Healthcare fix diff  -  matches examples/prs/fix-negative-billing.example.diff */
 export const HEALTHCARE_DIFF = `--- a/models/staging/stg_patients.sql
 +++ b/models/staging/stg_patients.sql
 @@ -1,12 +1,18 @@
@@ -560,7 +560,7 @@ export const HEALTHCARE_DIFF = `--- a/models/staging/stg_patients.sql
  select * from cleaned
 `;
 
-/** Ecommerce PII masking — matches examples/prs/fix-pii-masking.example.diff */
+/** Ecommerce PII masking  -  matches examples/prs/fix-pii-masking.example.diff */
 export const ECOMMERCE_DIFF = `--- a/models/marts/mart_customer_360.sql
 +++ b/models/marts/mart_customer_360.sql
 @@ -12,7 +12,7 @@ select
@@ -573,7 +573,7 @@ export const ECOMMERCE_DIFF = `--- a/models/marts/mart_customer_360.sql
  from {{ ref('stg_customers') }}
 `;
 
-/** NYC taxi freshness — matches examples/prs/fix-taxi-freshness.example.diff */
+/** NYC taxi freshness  -  matches examples/prs/fix-taxi-freshness.example.diff */
 export const NYCTAXI_DIFF = `--- a/models/marts/mart_monthly_revenue.sql
 +++ b/models/marts/mart_monthly_revenue.sql
 @@ -8,5 +8,5 @@ select
@@ -583,8 +583,8 @@ export const NYCTAXI_DIFF = `--- a/models/marts/mart_monthly_revenue.sql
 +where pickup_datetime >= current_date() - interval 1 day
 `;
 
-/** Healthcare MBOM — aligned with backend risk 61 */
-export const HEALTHCARE_MBOM = `# MBOM: mart_billing — MidSphere audit (example)
+/** Healthcare MBOM  -  aligned with backend risk 61 */
+export const HEALTHCARE_MBOM = `# MBOM: mart_billing  -  MidSphere audit (example)
 
 > Offline example for judges. Live path uses \`save_document\` when GMS + mutations are enabled.
 
@@ -614,7 +614,7 @@ Negative billing cascade into \`mart_billing\`. Demographics fork left open (sel
 3. remove_tags + gate_status=LIFTED
 `;
 
-export const ECOMMERCE_MBOM = `# MBOM: mart_customer_360 — MidSphere audit (example)
+export const ECOMMERCE_MBOM = `# MBOM: mart_customer_360  -  MidSphere audit (example)
 
 | Field | Value |
 | --- | --- |
@@ -635,10 +635,10 @@ Unmasked SSN in customer 360 analytics mart. Product catalog left open (selectiv
 
 ## Remediation
 
-\`examples/prs/fix-pii-masking.example.diff\` — SHA-256 hash SSN in dbt mart.
+\`examples/prs/fix-pii-masking.example.diff\`  -  SHA-256 hash SSN in dbt mart.
 `;
 
-export const NYCTAXI_MBOM = `# MBOM: mart_monthly_revenue — MidSphere audit (example)
+export const NYCTAXI_MBOM = `# MBOM: mart_monthly_revenue  -  MidSphere audit (example)
 
 | Field | Value |
 | --- | --- |
@@ -659,12 +659,12 @@ Freshness SLA breach (72h lag vs 24h SLA) on monthly revenue. Distance stats lef
 
 ## Remediation
 
-\`examples/prs/fix-taxi-freshness.example.diff\` — tighten partition filter window.
+\`examples/prs/fix-taxi-freshness.example.diff\`  -  tighten partition filter window.
 `;
 
-/** @deprecated Use resolveFixDiff(job) — healthcare alias */
+/** @deprecated Use resolveFixDiff(job)  -  healthcare alias */
 export const DEMO_DIFF = HEALTHCARE_DIFF;
-/** @deprecated Use resolveMbomMarkdown(job) — healthcare alias */
+/** @deprecated Use resolveMbomMarkdown(job)  -  healthcare alias */
 export const DEMO_MBOM = HEALTHCARE_MBOM;
 
 function scenarioKeyFromJob(job: JobArtifact | null | undefined): "healthcare" | "ecommerce" | "nyctaxi" {
@@ -701,7 +701,7 @@ export function resolveMbomMarkdown(job: JobArtifact | null | undefined): string
   return HEALTHCARE_MBOM;
 }
 
-/** Hot lineage edge label — scenario-aware, not always "PII". */
+/** Hot lineage edge label  -  scenario-aware, not always "PII". */
 export function resolveHotEdgeLabel(jobOrLabel?: JobArtifact | string | null): string {
   if (typeof jobOrLabel === "string") {
     const s = jobOrLabel.toLowerCase();

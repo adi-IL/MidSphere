@@ -4,7 +4,7 @@
 Requires a reachable DataHub GMS (DATAHUB_GMS_URL / DATAHUB_GMS_TOKEN or ~/.datahubenv).
 Idempotent best-effort: creates missing tags/properties; prints guidance on failure.
 
-Full GraphQL mutation shapes may vary by GMS version — prefer acryl-datahub SDK when available.
+Full GraphQL mutation shapes may vary by GMS version  -  prefer acryl-datahub SDK when available.
 This script is a scaffold; expand against live GMS during implementation.
 """
 
@@ -14,7 +14,7 @@ import os
 import sys
 
 TAGS = [
-    ("QUARANTINED", "MidSphere advisory quarantine — do not trust for agent context"),
+    ("QUARANTINED", "MidSphere advisory quarantine  -  do not trust for agent context"),
     ("CIRCUIT_BROKEN", "MidSphere circuit-breaker tripped on this asset"),
     ("MIDSPHERE_AUDIT", "Asset was audited by MidSphere"),
 ]
@@ -31,7 +31,7 @@ def main() -> int:
     gms = os.environ.get("DATAHUB_GMS_URL")
     token = os.environ.get("DATAHUB_GMS_TOKEN")
     print("MidSphere metadata bootstrap")
-    print(f"  DATAHUB_GMS_URL={gms or '(unset — using CLI default / ~/.datahubenv)'}")
+    print(f"  DATAHUB_GMS_URL={gms or '(unset  -  using CLI default / ~/.datahubenv)'}")
     print(f"  token={'set' if token else 'unset'}")
     print()
     print("Required tags:")
@@ -43,7 +43,7 @@ def main() -> int:
         print(f"  - {qn} ({typ})  # {desc}")
     print()
     print(
-        "STATUS: scaffold only — this script does NOT create tags or properties yet.\n"
+        "STATUS: scaffold only  -  this script does NOT create tags or properties yet.\n"
         "Create them manually in DataHub UI or via `datahub graphql` / acryl-datahub SDK.\n"
         "MCP add_tags will FAIL if tag URNs do not exist.\n"
         "Offline MidSphere demos do not require this bootstrap."

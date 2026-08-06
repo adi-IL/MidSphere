@@ -26,7 +26,7 @@ INSTANCE="${DATAHUB_GCE_INSTANCE:-datahub-quickstart}"
 POLICY="${DATAHUB_GCE_SCHEDULE_POLICY:-datahub-quickstart-schedule}"
 TZ="${DATAHUB_GCE_TZ:-Asia/Kolkata}"
 # cron: min hour day month weekday
-START_CRON="${DATAHUB_GCE_START_CRON:-0 9 * * 1-5}"   # Mon–Fri 09:00
+START_CRON="${DATAHUB_GCE_START_CRON:-0 9 * * 1-5}"   # Mon-Fri 09:00
 STOP_CRON="${DATAHUB_GCE_STOP_CRON:-0 22 * * *}"      # every day 22:00
 
 die() { echo "ERROR: $*" >&2; exit 1; }
@@ -130,7 +130,7 @@ cmd_wait_gms() {
   local ip="$1"
   local max="${2:-40}"
   local i code
-  echo "Waiting for DataHub GMS at http://${ip}:8080/health (cold start can take 5–15 min)..."
+  echo "Waiting for DataHub GMS at http://${ip}:8080/health (cold start can take 5-15 min)..."
   for i in $(seq 1 "$max"); do
     code="$(curl -sS -m 5 -o /dev/null -w '%{http_code}' "http://${ip}:8080/health" 2>/dev/null || echo 000)"
     echo "  [$i/$max] http=$code"

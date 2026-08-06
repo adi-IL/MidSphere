@@ -23,7 +23,7 @@ Built for [Build with DataHub: The Agent Hackathon](https://datahub.devpost.com/
 | --- | --- |
 | Command Center | https://midsphere.vercel.app |
 | API (Cloud Run) | https://midsphere-api-1053689941073.us-central1.run.app |
-| Source | https://github.com/adi-IL/MidSphere-datahb |
+| Source | https://github.com/adi-IL/MidSphere |
 
 ### Status honesty (Command Center)
 
@@ -94,8 +94,8 @@ No invented `datahub_*` tool prefixes. No MCP `create_incident`.
 ## Quick start
 
 ```bash
-git clone https://github.com/adi-IL/MidSphere-datahb.git
-cd MidSphere-datahb
+git clone https://github.com/adi-IL/MidSphere.git
+cd MidSphere
 cp .env.example .env
 # optional: DATAHUB_GMS_URL / DATAHUB_GMS_TOKEN
 # Vertex: GOOGLE_CLOUD_PROJECT and ADC

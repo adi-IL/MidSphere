@@ -34,23 +34,23 @@ const WAIT_HEARTBEATS: { agent: AgentName; message: string }[] = [
   },
   {
     agent: "ContextSentinel",
-    message: "awaiting workforce response · audit in flight…",
+    message: "awaiting workforce response · audit in flight...",
   },
   {
     agent: "CascadeAnalyzer",
-    message: "awaiting blast-radius / risk stage…",
+    message: "awaiting blast-radius / risk stage...",
   },
   {
     agent: "CircuitBreaker",
-    message: "awaiting selective quarantine stage…",
+    message: "awaiting selective quarantine stage...",
   },
   {
     agent: "FixArchitect",
-    message: "awaiting fix artifact stage…",
+    message: "awaiting fix artifact stage...",
   },
   {
     agent: "MBOMEngine",
-    message: "awaiting MBOM attestation stage…",
+    message: "awaiting MBOM attestation stage...",
   },
 ];
 
@@ -93,7 +93,7 @@ function eventsByAgent(events: JobEvent[]): Map<AgentName, JobEvent[]> {
       map.get(e.agent as AgentName)!.push(e);
     }
   }
-  // Orphan STATUS without agent mapping — attach to first agent if any
+  // Orphan STATUS without agent mapping  -  attach to first agent if any
   const orphans = events.filter((e) => !AGENTS.includes(e.agent as AgentName));
   if (orphans.length) {
     const first = map.get("ContextSentinel")!;
@@ -121,12 +121,12 @@ export default function App() {
   const [statuses, setStatuses] = useState<Record<AgentName, AgentStatus>>(
     idleStatuses(),
   );
-  const [bootStatus, setBootStatus] = useState("Connecting…");
+  const [bootStatus, setBootStatus] = useState("Connecting...");
   const cancelRef = useRef(false);
   const waitTimer = useRef<number | null>(null);
 
   const addLog = useCallback((log: JobEvent) => {
-    // Prepend — same as Sentinel
+    // Prepend  -  same as Sentinel
     setLogs((prev) => [log, ...prev]);
   }, []);
 
@@ -154,7 +154,7 @@ export default function App() {
 
   useEffect(() => {
     void (async () => {
-      setBootStatus("Checking API…");
+      setBootStatus("Checking API...");
       const h = await fetchHealth();
       if (h?.status === "ok") {
         setConnection("live");
@@ -165,11 +165,11 @@ export default function App() {
               ? "off"
               : "unknown",
         );
-        setBootStatus("Loading latest job…");
+        setBootStatus("Loading latest job...");
       } else {
         setConnection("offline");
         setCatalog("unknown");
-        setBootStatus("Loading sample data…");
+        setBootStatus("Loading sample data...");
       }
       const loaded = await loadCommandJob();
       applyJobArtifact(loaded.job, loaded.source);
@@ -241,7 +241,7 @@ export default function App() {
             makeLog(
               "MBOMEngine",
               "STATUS",
-              "MBOM ready — open Inspector → MBOM to review the attestation",
+              "MBOM ready  -  open Inspector → MBOM to review the attestation",
             ),
           );
         }
@@ -356,7 +356,7 @@ export default function App() {
           makeLog(
             "ContextSentinel",
             "STATUS",
-            `response received job=${created.job_id.slice(0, 8)}… streaming stages`,
+            `response received job=${created.job_id.slice(0, 8)}... streaming stages`,
           ),
         );
         applyJobArtifact(created, "api");
@@ -562,7 +562,7 @@ export default function App() {
             findings: job.findings.length,
             impacted: job.blast_radius.nodes.filter((n) => n.impacted).length,
             total: job.blast_radius.nodes.length,
-            gate: job.quarantine?.gateStatus ?? "—",
+            gate: job.quarantine?.gateStatus ?? " - ",
           }}
           selectedAgent={selectedAgent}
           onSelectAgent={setSelectedAgent}

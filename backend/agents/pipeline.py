@@ -156,7 +156,7 @@ def run_closed_loop_fallback(
         )
 
     def sim(agent: str, tool: str, detail: str) -> None:
-        """Deterministic demo step — not a live MCP call."""
+        """Deterministic demo step  -  not a live MCP call."""
         emit(
             agent,
             "STATUS",

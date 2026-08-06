@@ -84,7 +84,7 @@ export function GatePreview({ status, tags, properties, probeUrn }: Props) {
               disabled={probing}
               className="rounded border border-line px-2 py-1 text-2xs text-mute hover:text-ink disabled:opacity-50"
             >
-              {probing ? "Probing…" : "GET /v1/gate"}
+              {probing ? "Probing..." : "GET /v1/gate"}
             </button>
           </div>
           <p className="mt-1 truncate font-mono text-2xs text-faint" title={probeUrn}>
@@ -109,7 +109,7 @@ export function GatePreview({ status, tags, properties, probeUrn }: Props) {
                 <div className="flex justify-between gap-2">
                   <dt className="text-faint">job_id</dt>
                   <dd className="truncate text-mute" title={probe.job_id}>
-                    {probe.job_id.slice(0, 12)}…
+                    {probe.job_id.slice(0, 12)}...
                   </dd>
                 </div>
               )}

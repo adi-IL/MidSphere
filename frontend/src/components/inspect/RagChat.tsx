@@ -64,7 +64,7 @@ In job \`${job.job_id.slice(0, 8)}\`, downstream nodes outside the contaminated 
 • **Impacted Path:** Contaminated tables (e.g. \`mart_billing\` or \`mart_customer_360\`) are quarantined because audit findings directly corrupt their metrics.
 • **Open Fork:** Unaffected tables (e.g. \`mart_demographics\` or \`mart_product_catalog\`) remain **OPEN**.
 
-This guarantees **Selective Circuit Breaking**—halting corrupt financial/PII reports while keeping non-sensitive business analytics pipelines running smoothly.`;
+This guarantees **Selective Circuit Breaking** - halting corrupt financial/PII reports while keeping non-sensitive business analytics pipelines running smoothly.`;
     }
 
     // 3. FIX ARCHITECT & SQL/dbt REMEDIATION
@@ -107,7 +107,7 @@ MidSphere uses the official \`uvx mcp-server-datahub@latest\` server when GMS is
 • **Read:** \`get_entities\`, \`list_schema_fields\`, \`get_lineage\` (downstream for blast radius), \`get_dataset_queries\`, \`search\`.
 • **Write (mutations enabled):** \`add_tags\`, \`remove_tags\`, \`add_structured_properties\`, \`save_document\`.
 • **This job:** execution_mode=\`${mode}\` · mutations_applied=\`${mut}\` · GMS ${gms}.
-• **Honesty:** Offline steps use \`sim\` STATUS lines. Quarantine is advisory — Consumer Gate is MidSphere policy, not platform-wide MCP denial.`;
+• **Honesty:** Offline steps use \`sim\` STATUS lines. Quarantine is advisory  -  Consumer Gate is MidSphere policy, not platform-wide MCP denial.`;
     }
 
     // 5. RISK SCORE FORMULA

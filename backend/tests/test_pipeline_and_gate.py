@@ -140,7 +140,7 @@ def test_stage_tools_builder_antigravity_path():
 
     # ensure_complete_fallback is idempotent when stages already ran
     b2 = MidSphereJobBuilder(root_urn=ROOT, mode="full", auto_trip=True)
-    job2 = b2.to_job()  # no tools called — ensure_complete fills stages
+    job2 = b2.to_job()  # no tools called  -  ensure_complete fills stages
     assert job2.findings and job2.quarantine
     assert_telemetry_mcp_clean(job2.events)
 

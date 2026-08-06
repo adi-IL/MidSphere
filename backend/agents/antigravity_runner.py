@@ -73,7 +73,7 @@ Rules:
   get_entities, add_tags, save_document), use them to enrich catalog context
   around the root_urn. Prefer downstream lineage for blast radius.
 - MidSphere tools apply selective quarantine for healthcare, ecommerce PII, and
-  nyctaxi freshness scenarios — leave healthy forks open.
+  nyctaxi freshness scenarios  -  leave healthy forks open.
 - Quarantine is advisory metadata, not global MCP auto-denial.
 - After tools finish, write a short operator summary (under 120 words). No emojis.
 """

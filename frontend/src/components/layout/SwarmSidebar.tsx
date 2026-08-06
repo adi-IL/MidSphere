@@ -24,7 +24,7 @@ export interface JobMetrics {
   findings: number;
   impacted: number;
   total: number;
-  gate: "OPEN" | "BLOCKED" | "LIFTED" | "—";
+  gate: "OPEN" | "BLOCKED" | "LIFTED" | " - ";
 }
 
 interface Props {
@@ -191,7 +191,7 @@ export function SwarmSidebar({
   };
 
   const shortId =
-    jobId.length > 18 ? `${jobId.slice(0, 8)}…${jobId.slice(-6)}` : jobId;
+    jobId.length > 18 ? `${jobId.slice(0, 8)}...${jobId.slice(-6)}` : jobId;
 
   return (
     <aside className="flex w-[240px] shrink-0 flex-col border-r border-line bg-panel">
@@ -213,7 +213,7 @@ export function SwarmSidebar({
         </div>
       </div>
 
-      {/* Metrics strip — single row */}
+      {/* Metrics strip  -  single row */}
       {metrics && (
         <div className="flex shrink-0 items-center gap-3 border-b border-line px-3 py-2 font-mono text-2xs tabular-nums">
           <span
