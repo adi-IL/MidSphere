@@ -1,5 +1,6 @@
 .vercel
-.env*
-
-.env.production
+.env
 .env.local
+.env.production
+# Track example only (public Cloud Run URL, no secrets)
+!.env.production.example
