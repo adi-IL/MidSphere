@@ -10,7 +10,6 @@ These files are the **dry-run / offline** outputs of the closed loop. They are n
 | [`prs/`](prs/) | Dry-run fix diffs (dbt/SQL style) |
 | [`jobs/`](jobs/) | Healthcare job JSON fixture (`demo_closed_loop`) |
 | [`telemetry/`](telemetry/) | Sample stage log with real MCP tool names and simulated labels |
-| `ui/` | Optional local capture folder (not required for judges) |
 
 ## Scenario table (source of truth: `scenarios.py`)
 
