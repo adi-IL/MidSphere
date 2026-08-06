@@ -6,7 +6,7 @@
 
 <p align="center">
   <strong>Autonomous Context Circuit-Breaker Engine for Data Platforms</strong><br />
-  <em>DataHub · MCP · Python Antigravity SDK · Gemini</em>
+  <em>DataHub · MCP · Google Antigravity SDK · Gemini</em>
 </p>
 
 Organizations deploy AI agents faster than they can keep catalog context trustworthy. Schema drift, quality defects, ungoverned PII, and missing ownership do not stop at an alert. Agents that continue to read the catalog inherit the damage.
@@ -35,7 +35,7 @@ The UI is minimal monochrome (no emoji). Status labels are defined as follows.
 | **GMS** / **GMS off** | API GMS probe (`datahub_reachable`) |
 | **Offline** | API unreachable; sample fixtures from `frontend/src/lib/demoJob.ts` |
 | Pipeline **Sample** / **Agent** / **Live MCP** | Run kind derived from `execution_mode` and job source |
-| **Run** completes | Closed loop finished (Antigravity primary and/or deterministic fallback) |
+| **Run** completes | Closed loop finished (Google Antigravity primary and/or deterministic fallback) |
 | Decision **Fix** / **Attestation** | Scenario paths under [`examples/`](examples/) (dry-run) |
 | Live tags / `save_document` | GMS reachable and `TOOLS_IS_MUTATION_ENABLED=true` (see job `mutations_applied`) |
 
@@ -57,7 +57,7 @@ Trigger -> Sentinel -> Cascade -> Breaker -> Fix -> MBOM
               +---- DataHub MCP when GMS is configured (read; optional writes) ----+
 ```
 
-**Primary workforce:** Google Antigravity Agent with five MidSphere stage tools on Vertex Gemini (required dependency). Official DataHub MCP attaches when GMS is reachable. Stage tools may call `get_lineage`, `list_schema_fields`, `add_tags`, and `save_document` when mutations are enabled. On Agent failure, a deterministic fallback completes the job with simulated telemetry labels when offline.
+**Primary workforce:** [Google Antigravity SDK](https://github.com/google-antigravity/antigravity-sdk-python) for Python (`pip install google-antigravity`; `Agent` + `LocalAgentConfig` with custom MidSphere stage tools on Vertex Gemini). Official DataHub MCP attaches when GMS is reachable. Stage tools may call `get_lineage`, `list_schema_fields`, `add_tags`, and `save_document` when mutations are enabled. On Agent failure, a deterministic fallback completes the job with simulated telemetry labels when offline.
 
 ### Scenario packs
 
@@ -77,9 +77,9 @@ Packs are defined in `backend/agents/scenarios.py` and mirrored in Command Cente
 | --- | --- |
 | Frontend | React 18, Vite, TypeScript, Tailwind, React Flow, Geist |
 | Backend | FastAPI, Pydantic, httpx, uvicorn |
-| Primary workforce | [Google Antigravity](https://github.com/google-antigravity/antigravity-sdk-python) and `backend/agents/stage_tools.py` |
+| Primary workforce | [Google Antigravity SDK](https://github.com/google-antigravity/antigravity-sdk-python) (Python package `google-antigravity`) + `backend/agents/stage_tools.py` |
 | Fallback | Deterministic stages in `backend/agents/pipeline.py` |
-| Models | Gemini via Vertex and ADC |
+| Models | Gemini via Vertex AI (ADC) |
 | Catalog | DataHub GMS and official [mcp-server-datahub](https://github.com/acryldata/mcp-server-datahub) via `uvx` |
 | Deploy | Vercel project `midsphere`, GCP Cloud Run `midsphere-api` |
 
@@ -141,15 +141,37 @@ Local mirrors: [`skills/`](skills/).
 
 ## Repository layout
 
+Public OSS tree aligned with common monorepo practice and the hackathon submission requirements (public source, Apache 2.0, setup instructions, optional sample artifacts):
+
 ```
-frontend/          Command Center (Vercel)
-backend/           Closed-loop API (Cloud Run)
-examples/          Scenario MBOMs, dry-run diffs, job fixture, sample telemetry
-skills/            Upstream skill mirrors (PR #88)
-scripts/           Bootstrap and GCE schedule helpers
-ARCHITECTURE.md    Shipping architecture
-.github/           Path-filtered CI and deploy
+LICENSE                 Apache 2.0 (required; visible at repo root)
+README.md               Overview, honesty table, quick start
+ARCHITECTURE.md         Shipping contracts (short)
+.env.example            Env template (no secrets)
+.gitignore
+.github/                CI + deploy workflows
+  DEPLOY.md
+  workflows/
+backend/                Closed-loop API (Cloud Run)
+  app/ api/ agents/ gate/ midsphere_mcp/ models/ tests/
+  requirements.txt Dockerfile
+frontend/               Command Center (Vercel)
+  src/ public/ package.json
+examples/               Judge-readable sample outputs (optional but present)
+  mboms/ prs/ jobs/ telemetry/
+skills/                 Upstream skill mirrors (datahub-skills PR #88)
+scripts/                Operator helpers (GCE GMS schedule, bootstrap)
+docs/                   Index of public docs (no secrets)
 ```
+
+| Path | Role for judges |
+| --- | --- |
+| Live Command Center | End-to-end UI |
+| `examples/` | Offline MBOMs, dry-run diffs, telemetry without running the stack |
+| `backend/` + `frontend/` | Full source to run locally |
+| `LICENSE` | Apache 2.0 |
+
+Local-only material (not part of the public product surface) is gitignored: `resource/`, `internal/`, large recon dumps.
 
 ## Documentation
 

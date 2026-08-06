@@ -6,7 +6,9 @@ Closed-loop context circuit-breaker for DataHub. This document describes only be
 
 MidSphere runs a multi-stage closed loop on a root dataset URN: audit findings, selective blast radius, advisory quarantine, dry-run fix artifact, MBOM attestation path.
 
-**Primary workforce:** [Google Antigravity](https://github.com/google-antigravity/antigravity-sdk-python) Agent with five MidSphere stage tools on Vertex Gemini (required dependency). Official DataHub MCP attaches when GMS is reachable. Stage tools call live MCP reads and writes when mutations are enabled.
+**Primary workforce:** [Google Antigravity SDK](https://github.com/google-antigravity/antigravity-sdk-python) for Python (PyPI: `google-antigravity`; imports `Agent`, `LocalAgentConfig` from `google.antigravity`). MidSphere registers five custom stage tools and runs on Vertex Gemini. Official DataHub MCP attaches when GMS is reachable. Stage tools call live MCP reads and writes when mutations are enabled.
+
+After the first full name, docs may say **Antigravity** for the agent runtime. Code identifiers stay `ANTIGRAVITY_*` / `antigravity_closed_loop`.
 
 When GMS is down or mutations are disabled, quarantine stays **job-local** with `mutations_applied=false`. **Consumer Gate** is MidSphere policy. It is not platform-wide MCP auto-denial.
 
@@ -21,7 +23,7 @@ Three packs: healthcare, ecommerce (PII), NYC taxi (freshness).
 ```
 POST /v1/jobs
   -> run_closed_loop
-       PRIMARY: Antigravity Agent
+       PRIMARY: Google Antigravity SDK Agent (google-antigravity)
                 tools = [midsphere_*] + optional MCP (mcp-server-datahub)
                 stage tools -> get_lineage / add_tags / save_document when configured
        FALLBACK: deterministic pipeline.py if Agent fails
@@ -109,7 +111,7 @@ Live MCP success is recorded under `blast_radius.live_enrichment` and telemetry.
 
 ```
 frontend/     Command Center
-backend/      FastAPI, Antigravity, gate, MCP client
+backend/      FastAPI, Google Antigravity SDK, gate, MCP client
 examples/     MBOMs, PR diffs, job fixture, sample telemetry
 skills/       Upstream skill mirrors (PR #88)
 scripts/      Bootstrap and GCE schedule helpers

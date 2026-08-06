@@ -1,9 +1,10 @@
-"""Antigravity as MidSphere primary workforce.
+"""Google Antigravity SDK as MidSphere primary workforce.
 
-Uses google-antigravity Agent + LocalAgentConfig with:
+Uses the official Python package `google-antigravity`
+(`from google.antigravity import Agent, LocalAgentConfig`) with:
 - custom MidSphere stage tools (audit, cascade, break, fix, mbom)
 - optional official DataHub MCP server (stdio)
-- Gemini model IDs on Vertex via ADC
+- Gemini model IDs on Vertex AI via ADC
 
 On failure, callers fall back to deterministic run_closed_loop_fallback.
 """

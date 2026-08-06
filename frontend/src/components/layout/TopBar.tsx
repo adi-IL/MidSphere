@@ -1,5 +1,9 @@
+import { Github } from "lucide-react";
 import { SCENARIOS, type ScenarioId } from "../../lib/types";
 import type { CatalogState, ConnectionState } from "../../lib/status";
+
+/** Public source repository (OSS submission surface). */
+export const MIDSPHERE_GITHUB_URL = "https://github.com/adi-IL/MidSphere";
 
 interface Props {
   connection: ConnectionState;
@@ -94,7 +98,6 @@ export function TopBar({
           </div>
         )}
 
-        {/* Mobile scenario select */}
         {onSelectScenario && (
           <select
             value={activeScenario}
@@ -118,6 +121,17 @@ export function TopBar({
           />
           <StatusDot on={gmsOn} label={gmsOn ? "GMS" : "GMS off"} />
         </div>
+
+        <a
+          href={MIDSPHERE_GITHUB_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          title="Source on GitHub"
+          aria-label="Open MidSphere source code on GitHub"
+          className="inline-flex h-8 w-8 items-center justify-center rounded border border-line text-mute transition-colors hover:border-line2 hover:text-ink"
+        >
+          <Github className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+        </a>
 
         <button
           type="button"

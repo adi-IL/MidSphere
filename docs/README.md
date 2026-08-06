@@ -1,14 +1,15 @@
 # docs/
 
-Long-form operator notes are kept outside the public tree (local `internal/`).
+Public documentation index for the MidSphere monorepo.
 
-**Public documentation for this repository:**
+Long-form operator notes and recon stay outside the published product surface (local `internal/`, gitignored).
 
 | Doc | Role |
 | --- | --- |
-| [../README.md](../README.md) | Product overview and honesty table |
-| [../ARCHITECTURE.md](../ARCHITECTURE.md) | Shipping architecture |
-| [../examples/README.md](../examples/README.md) | Scenario artifacts |
+| [../README.md](../README.md) | Product overview, honesty table, repository layout |
+| [../ARCHITECTURE.md](../ARCHITECTURE.md) | Shipping architecture and Google Antigravity SDK usage |
+| [../examples/README.md](../examples/README.md) | Scenario artifacts (hackathon sample outputs) |
 | [../backend/README.md](../backend/README.md) | API local run |
 | [../frontend/README.md](../frontend/README.md) | Command Center local run |
 | [../.github/DEPLOY.md](../.github/DEPLOY.md) | CI/CD and deploy isolation |
+| [../LICENSE](../LICENSE) | Apache License 2.0 |

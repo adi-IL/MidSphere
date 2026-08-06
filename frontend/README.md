@@ -56,6 +56,7 @@ Production builds require a real Cloud Run URL in `VITE_API_BASE_URL` (project e
 - Live jobs via `POST /v1/jobs` when the API is up
 - Trip / Lift call backend for API jobs; sample path logs simulated STATUS only
 - Optional Timeline scrubber (narrative only, not GMS history)
+- Top bar GitHub control opens the public source: https://github.com/adi-IL/MidSphere
 
 ## Deploy
 

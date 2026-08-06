@@ -22,7 +22,7 @@ backend/
 
 ## Contracts
 
-Root [ARCHITECTURE.md](../ARCHITECTURE.md): Antigravity is primary. Official MCP attaches when GMS is reachable. Stage tools may call live `get_lineage`, `add_tags`, and `save_document` when mutations are enabled. Scenario packs: healthcare, ecommerce, nyctaxi (`agents/scenarios.py`).
+Root [ARCHITECTURE.md](../ARCHITECTURE.md): primary workforce is the **Google Antigravity SDK** (Python package `google-antigravity`). Official DataHub MCP attaches when GMS is reachable. Stage tools may call live `get_lineage`, `add_tags`, and `save_document` when mutations are enabled. Scenario packs: healthcare, ecommerce, nyctaxi (`agents/scenarios.py`).
 
 ## Local
 

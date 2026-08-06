@@ -1,7 +1,7 @@
 [project]
 name = "midsphere-backend"
 version = "0.1.0"
-description = "MidSphere swarm engine — FastAPI + DataHub MCP + Antigravity"
+description = "MidSphere closed-loop API: FastAPI, DataHub MCP, Google Antigravity SDK"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
