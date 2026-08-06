@@ -159,7 +159,13 @@ export default function App() {
       const h = await fetchHealth();
       setHealth(
         h?.status === "ok"
-          ? `API · closed loop${h.datahub_reachable === false ? " · GMS offline" : ""}`
+          ? `API · closed loop${
+              h.datahub_reachable === true
+                ? " · GMS live"
+                : h.datahub_reachable === false
+                  ? " · GMS offline"
+                  : ""
+            }`
           : "Offline demo mode",
       );
       setBootStatus(
