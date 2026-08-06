@@ -43,9 +43,10 @@ def main() -> int:
         print(f"  - {qn} ({typ})  # {desc}")
     print()
     print(
-        "TODO: implement createTag / create structured property via datahub SDK or GraphQL.\n"
-        "Until then, create these manually in DataHub UI or via `datahub graphql`.\n"
-        "MCP add_tags will FAIL if tag URNs do not exist."
+        "STATUS: scaffold only — this script does NOT create tags or properties yet.\n"
+        "Create them manually in DataHub UI or via `datahub graphql` / acryl-datahub SDK.\n"
+        "MCP add_tags will FAIL if tag URNs do not exist.\n"
+        "Offline MidSphere demos do not require this bootstrap."
     )
     return 0
 

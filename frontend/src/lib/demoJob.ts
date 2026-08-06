@@ -194,7 +194,7 @@ export const ECOMMERCE_JOB: JobArtifact = {
         "urn:li:dataset:(urn:li:dataPlatform:snowflake,ecommerce.mart_customer_360,PROD)",
       column_path: "social_security_number",
       evidence: "Raw unhashed SSN exposed in customer_360 analytics mart",
-      rationale: "Unencrypted PII violates GDPR & HIPAA compliance policies",
+      rationale: "Unmasked PII in analytics mart violates typical privacy / governance policy",
     },
     {
       id: "f_pii2",

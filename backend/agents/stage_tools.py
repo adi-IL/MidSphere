@@ -1,8 +1,8 @@
 """MidSphere stage implementations exposed as Antigravity custom tools.
 
 These callables are registered on LocalAgentConfig(tools=[...]). The agent
-decides when to invoke them; the tool bodies perform real MidSphere work and
-accumulate JobArtifact state.
+decides when to invoke them; tool bodies use shared scenario packs
+(agents/scenarios.py) and accumulate JobArtifact state.
 """
 
 from __future__ import annotations

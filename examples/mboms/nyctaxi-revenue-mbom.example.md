@@ -24,7 +24,7 @@ MidSphere ContextSentinel detected a **FRESHNESS_VIOLATION** (HIGH) on `mart_mon
 
 ## Selective Circuit Breaking
 
-- **Quarantined Asset:** `mart_monthly_revenue` set to `BLOCKED`. Advisory tags `urn:li:tag:PIPELINE_LAG`, `urn:li:tag:QUARANTINED`, `urn:li:tag:MIDSPHERE_AUDIT` published to DataHub.
+- **Quarantined Asset:** `mart_monthly_revenue` set to `BLOCKED` (advisory). Intended tags: `PIPELINE_LAG`, `QUARANTINED`, `MIDSPHERE_AUDIT` — written live only when GMS + mutations are enabled; otherwise job-local on the MidSphere job artifact.
 - **Open Lineage Fork:** `mart_trip_distance_stats` remains **OPEN** with zero risk score.
 
 ---

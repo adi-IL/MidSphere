@@ -1,14 +1,14 @@
 # docs/
 
-Optional long-form notes. **Canonical design and ops live at repo root:**
+Long-form operator notes are kept **out of the public tree** (local `internal/`).
+
+**Public docs for this repo:**
 
 | Doc | Role |
 | --- | --- |
-| [../ARCHITECTURE.md](../ARCHITECTURE.md) | System design |
-| [../DESIGN.md](../DESIGN.md) | UI/UX |
-| [../AGENTS.md](../AGENTS.md) | Agent & ops contracts |
-| [../CHANGELOG.md](../CHANGELOG.md) | Shipping changelog |
-| [../.github/DEPLOY.md](../.github/DEPLOY.md) | CI/CD secrets and deploy isolation |
-| [FORENSIC_TIME_TRAVEL.md](./FORENSIC_TIME_TRAVEL.md) | Command Center scrubber narrative |
-| [../datahub-agent-hackathon.md](../datahub-agent-hackathon.md) | Official hackathon rules |
-| [../resource/](../resource/) | Upstream clones and HTML snapshots (not shipping product code) |
+| [../README.md](../README.md) | Judge-facing overview |
+| [../ARCHITECTURE.md](../ARCHITECTURE.md) | Shipping architecture |
+| [../examples/README.md](../examples/README.md) | Offline artifacts |
+| [../backend/README.md](../backend/README.md) | API local run |
+| [../frontend/README.md](../frontend/README.md) | Command Center local run |
+| [../.github/DEPLOY.md](../.github/DEPLOY.md) | CI/CD deploy isolation |

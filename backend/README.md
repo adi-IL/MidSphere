@@ -22,7 +22,7 @@ backend/
 
 ## Contracts
 
-Root [AGENTS.md](../AGENTS.md) is the ops source of truth: Antigravity primary path, MCP tool names, job artifact schema, deploy isolation.
+Root [ARCHITECTURE.md](../ARCHITECTURE.md) is the shipping contract: Antigravity primary path, MCP tool names, job artifact schema, deploy isolation.
 
 ## Local
 

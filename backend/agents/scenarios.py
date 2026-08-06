@@ -44,7 +44,7 @@ def get_scenario_spec(root_urn: str) -> dict[str, Any]:
                     entity_urn=urn_mart_c360,
                     column_path="social_security_number",
                     evidence="Raw unhashed SSN exposed in customer_360 analytics mart",
-                    rationale="Unencrypted PII violates GDPR & HIPAA compliance policies",
+                    rationale="Unmasked PII in analytics mart violates typical privacy / governance policy",
                 ),
                 AuditFinding(
                     id="f_pii2",

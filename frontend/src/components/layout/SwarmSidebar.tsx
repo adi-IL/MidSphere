@@ -10,6 +10,14 @@ interface AgentCardModel {
 
 export type InspectorTab = "findings" | "gate" | "aspects" | "fix" | "mbom" | "rag" | "raw";
 
+export interface JobMetrics {
+  risk: number;
+  findings: number;
+  impacted: number;
+  total: number;
+  gate: "OPEN" | "BLOCKED" | "LIFTED" | "—";
+}
+
 interface Props {
   agents: AgentCardModel[];
   /** Newest-first terminal stream (Sentinel-style). */
@@ -17,6 +25,7 @@ interface Props {
   jobId: string;
   modeLabel?: string;
   scanning?: boolean;
+  metrics?: JobMetrics;
   onSelectAgent?: (name: AgentName | "ALL") => void;
   selectedAgent?: AgentName | "ALL";
   onClearLogs?: () => void;
@@ -168,6 +177,7 @@ export function SwarmSidebar({
   jobId,
   modeLabel = "closed loop",
   scanning = false,
+  metrics,
   onSelectAgent,
   selectedAgent = "ALL",
   onClearLogs,
@@ -222,6 +232,60 @@ export function SwarmSidebar({
           {jobId}
         </div>
       </div>
+
+      {/* Job metrics 2×2 */}
+      {metrics && (
+        <div className="shrink-0 grid grid-cols-2 gap-1.5 border-b border-line p-2">
+          {(
+            [
+              {
+                label: "risk",
+                value: String(metrics.risk),
+                tone:
+                  metrics.risk >= 60
+                    ? "text-bad"
+                    : metrics.risk >= 40
+                      ? "text-warn"
+                      : "text-ink",
+              },
+              {
+                label: "findings",
+                value: String(metrics.findings),
+                tone: "text-ink",
+              },
+              {
+                label: "impacted",
+                value: `${metrics.impacted}/${metrics.total}`,
+                tone: metrics.impacted > 0 ? "text-bad" : "text-good",
+              },
+              {
+                label: "gate",
+                value: metrics.gate,
+                tone:
+                  metrics.gate === "BLOCKED"
+                    ? "text-bad"
+                    : metrics.gate === "LIFTED"
+                      ? "text-warn"
+                      : "text-good",
+              },
+            ] as const
+          ).map((cell) => (
+            <div
+              key={cell.label}
+              className="rounded-md border border-line bg-canvas px-2 py-1.5"
+            >
+              <div className="font-mono text-[9px] uppercase tracking-widest text-faint">
+                {cell.label}
+              </div>
+              <div
+                className={`mt-0.5 font-mono text-sm font-semibold tabular-nums ${cell.tone}`}
+              >
+                {cell.value}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Stage cards */}
       <div className="shrink-0 space-y-1.5 border-b border-line p-2">

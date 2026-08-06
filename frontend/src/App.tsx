@@ -554,6 +554,13 @@ export default function App() {
           jobId={job.job_id}
           modeLabel={modeLabel(job.execution_mode)}
           scanning={scanning}
+          metrics={{
+            risk: job.blast_radius.risk_score,
+            findings: job.findings.length,
+            impacted: job.blast_radius.nodes.filter((n) => n.impacted).length,
+            total: job.blast_radius.nodes.length,
+            gate: job.quarantine?.gateStatus ?? "—",
+          }}
           selectedAgent={selectedAgent}
           onSelectAgent={setSelectedAgent}
           onClearLogs={onClearLogs}

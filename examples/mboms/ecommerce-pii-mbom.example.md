@@ -17,14 +17,14 @@ MidSphere ContextSentinel detected **UNGOVERNED_PII** (CRITICAL) exposed in `mar
 
 | Finding ID | Type | Severity | Entity URN | Column | Rationale |
 | --- | --- | --- | --- | --- | --- |
-| `f_pii1` | `UNGOVERNED_PII` | **CRITICAL** | `...ecommerce.mart_customer_360,PROD)` | `social_security_number` | Violates GDPR Article 32 & HIPAA compliance rules |
+| `f_pii1` | `UNGOVERNED_PII` | **CRITICAL** | `...ecommerce.mart_customer_360,PROD)` | `social_security_number` | Unmasked PII in analytics mart violates typical privacy / governance policy |
 | `f_pii2` | `MISSING_OWNER` | **HIGH** | `...ecommerce.raw_customers,PROD)` | `owner` | Unassigned dataset ownership metadata |
 
 ---
 
 ## Selective Circuit Breaking
 
-- **Quarantined Asset:** `mart_customer_360` set to `BLOCKED`. Advisory tags `urn:li:tag:QUARANTINED`, `urn:li:tag:CIRCUIT_BROKEN`, `urn:li:tag:MIDSPHERE_AUDIT` published to DataHub.
+- **Quarantined Asset:** `mart_customer_360` set to `BLOCKED` (advisory). Intended tags: `QUARANTINED`, `CIRCUIT_BROKEN`, `MIDSPHERE_AUDIT` — written live only when GMS + mutations are enabled; otherwise job-local on the MidSphere job artifact.
 - **Open Lineage Fork:** `mart_product_catalog` remains **OPEN** with zero risk score.
 
 ---

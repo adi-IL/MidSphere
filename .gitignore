@@ -18,14 +18,19 @@ service-account*.json
 /resource/
 # Official Devpost rules dump (local reference only)
 /datahub-agent-hackathon.md
-# Operator scratch, billing notes, personal runbooks
+# Operator scratch, billing notes, personal runbooks, audits
 /internal/
 *.local.md
 NOTES.local.md
-# Agent session / IDE agent caches
-.agents/cache/
-.agents/history/
-# Optional: keep .agents/sdk.md + rules tracked for implementers
+# Agent session / IDE agent caches and local agent kits
+.agents/
+# Ops / design / process docs kept locally under internal/docs
+/AGENTS.md
+/CHANGELOG.md
+/DESIGN.md
+/docs/FORENSIC_TIME_TRAVEL.md
+/issues/
+/examples/video/
 
 # --- Python ---
 __pycache__/
@@ -94,8 +99,5 @@ examples/ui/*.jpg
 !frontend/public/*.png
 !frontend/public/*.ico
 
-
-# Demo video working files (keep script in git, not mp4)
-examples/video/raw/
-examples/video/export/
+# Demo video working files
 *.mp4

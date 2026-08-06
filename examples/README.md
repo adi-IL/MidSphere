@@ -6,8 +6,7 @@ Judge-scorable artifacts that stand alone **without running the app**.
 | --- | --- |
 | `mboms/` | Healthcare, ecommerce, NYC taxi MBOM markdown |
 | `prs/` | Sample fix diffs (dbt/SQL) per scenario |
-| `video/` | `DEMO_VIDEO_SCRIPT.md` (record when ready) |
-| `jobs/` | Offline job JSON fixture (`healthcare-sample.example.json`) |
+| `jobs/` | Offline job JSON fixture |
 | `telemetry/` | Sample swarm log lines (real MCP names) |
 | `ui/` | Optional UI capture folder |
 
@@ -19,15 +18,14 @@ Judge-scorable artifacts that stand alone **without running the app**.
 | Ecommerce | **88** | `mart_customer_360` | `prs/fix-pii-masking.example.diff` | `mboms/ecommerce-pii-mbom.example.md` |
 | NYC Taxi | **65** | `mart_monthly_revenue` | `prs/fix-taxi-freshness.example.diff` | `mboms/nyctaxi-revenue-mbom.example.md` |
 
-These match `backend/agents` stage tools and the deterministic fallback. Selective halt leaves one open fork in each graph (e.g. demographics / product catalog / trip distance).
+These match `backend/agents/scenarios.py`. Selective halt leaves one open fork in each graph.
 
 ## Honesty
 
-- Offline demos and fixtures use **job-local** quarantine and `sim` telemetry when GMS is unreachable.
-- Live MCP tool names are unprefixed (`get_lineage`, `add_tags`, `save_document`, …). Never invent `datahub_*` tools.
+- Offline demos use **job-local** quarantine and `sim` telemetry when GMS is unreachable.
+- Example MBOMs describe the **intended** write-back contract; they are **not** proof that tags were written to a live catalog.
+- Live MCP names are unprefixed (`get_lineage`, `add_tags`, `save_document`, …).
 - `execution_mode` ground truth: `antigravity_closed_loop` | `demo_closed_loop` | `live_mcp`.
 - Mutations only when GMS is reachable **and** `TOOLS_IS_MUTATION_ENABLED=true`.
 
-Command Center offline fixtures live in `frontend/src/lib/demoJob.ts` (same numbers and paths).
-
-Contracts: root [DESIGN.md](../DESIGN.md), [AGENTS.md](../AGENTS.md), [docs/FORENSIC_TIME_TRAVEL.md](../docs/FORENSIC_TIME_TRAVEL.md).
+Command Center offline fixtures: `frontend/src/lib/demoJob.ts`.

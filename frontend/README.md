@@ -27,7 +27,7 @@ frontend/
 
 ## Design authority
 
-Root [DESIGN.md](../DESIGN.md) — monochrome Command Center, Activity terminal honesty, real MCP names.
+Root [ARCHITECTURE.md](../ARCHITECTURE.md) and [README.md](../README.md) — monochrome Command Center, telemetry honesty, real MCP names.
 
 ## Local
 
@@ -49,7 +49,7 @@ npm run build
 - Multi-scenario offline demos (healthcare / ecommerce / nyctaxi) with honest `sim` telemetry
 - Live jobs via `POST /v1/jobs` when API is up
 - Trip / Lift wired to backend for API jobs; demo path logs `sim` STATUS only
-- Forensic Time Travel scrubber (narrative, not GMS history) — `docs/FORENSIC_TIME_TRAVEL.md`
+- Forensic Time Travel scrubber (closed-loop narrative UI, not GMS history)
 
 ## Deploy
 
