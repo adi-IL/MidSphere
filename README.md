@@ -62,7 +62,7 @@ Trigger → Sentinel → Cascade → Breaker → Fix → MBOM
               +---- DataHub MCP when GMS configured (read + optional writes) ----+
 ```
 
-Shipping path: **Google Antigravity** is the primary workforce (one Agent, five MidSphere stage tools on Vertex Gemini). If Antigravity is disabled or fails, a **deterministic fallback** still completes the job with honest `sim` telemetry.
+Shipping path: **Google Antigravity is the primary workforce** (required dependency — one Agent, five MidSphere stage tools on Vertex Gemini, with official DataHub MCP attached when GMS is reachable). Stage tools call live MCP (`get_lineage`, `list_schema_fields`, `add_tags`, `save_document`) when mutations are enabled. If Antigravity fails, a **deterministic fallback** still completes the job with honest `sim` telemetry when offline.
 
 Primary demo: healthcare fork (`raw → staging → mart_billing | mart_demographics`). Selective halt: **billing can quarantine while demographics stays open**.
 
