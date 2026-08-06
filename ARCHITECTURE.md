@@ -74,6 +74,19 @@ Official heavier alternative: [DataHub on GKE](https://docs.datahub.com/docs/dep
 `GET /v1/gate/{urn}` against the latest job quarantine set.  
 Lift: `POST /v1/jobs/{id}/lift` (job-local).
 
+## Command Center (frontend)
+
+Minimal monochrome shell (no emoji). Default layout:
+
+| Region | Role |
+| --- | --- |
+| Top | Scenario segments (Hospital · Retail · Taxi), Live / GMS status dots, **Run** |
+| Left **Pipeline** | Run kind badge (Sample / Agent / Live MCP), metrics strip, stage stepper; **Telemetry** collapsed by default |
+| Center | Selective lineage graph (hero); optional **Timeline** (not GMS history) |
+| Right **Decision** | Findings · Gate · Attestation (+ More); sticky **Trip** / **Lift** |
+
+`VITE_API_BASE_URL` is baked at build time to Cloud Run. Empty/wrong base yields Offline + sample fixtures.
+
 ## Deploy isolation
 
 | Tree | Target |

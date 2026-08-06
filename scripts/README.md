@@ -33,7 +33,7 @@ Research: GCP’s built-in **instance schedules** (resource policies) start/stop
 
 ./scripts/gce_datahub_schedule.sh status
 ./scripts/gce_datahub_schedule.sh stop-now   # stop immediately
-./scripts/gce_datahub_schedule.sh start-now  # start for a live demo
+./scripts/gce_datahub_schedule.sh start-now  # start VM, re-point Cloud Run DATAHUB_GMS_URL, wait for GMS
 ./scripts/gce_datahub_schedule.sh remove     # detach + delete policy
 ```
 

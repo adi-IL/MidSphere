@@ -35,17 +35,19 @@ Built for [Build with DataHub: The Agent Hackathon](https://datahub.devpost.com/
 
 ### What is real vs offline (60 seconds)
 
+Command Center UI is **minimal monochrome** (Linear/Vercel-style): no emoji, scarce color, progressive disclosure.
+
 | You see | Meaning |
 | --- | --- |
-| **Run scan** succeeds | Closed loop ran (Antigravity and/or deterministic fallback) |
-| Connection / health **GMS reachable** | API can probe live DataHub GMS (`datahub_reachable=true`) |
-| Connection chip **GMS offline** | No live catalog; quarantine is **job-local / advisory on the job** |
-| `execution_mode` | Ground truth: `antigravity_closed_loop` · `demo_closed_loop` · `live_mcp` |
-| Fix / MBOM tabs | Dry-run artifacts from `examples/` (scenario-correct) |
-| Live tags / `save_document` | GMS up **and** `TOOLS_IS_MUTATION_ENABLED=true` → `mutations_applied=true` in the job |
-| Chip **API · closed loop · GMS live** | Frontend reached Cloud Run and GMS probe succeeded |
+| Top status **Live** | Frontend reached Cloud Run (`GET /v1/health` ok) |
+| Top status **GMS** / **GMS off** | API GMS probe (`datahub_reachable`) |
+| Top status **Offline** | API unreachable; sample job fixtures load |
+| Pipeline badge **Sample** / **Agent** / **Live MCP** | Run kind from `execution_mode` + job source (honest labels) |
+| **Run** succeeds | Closed loop finished (Antigravity and/or deterministic fallback) |
+| Decision **Fix** / **Attestation** | Dry-run artifacts from `examples/` (scenario-correct) |
+| Live tags / `save_document` | GMS up **and** `TOOLS_IS_MUTATION_ENABLED=true` → `mutations_applied=true` |
 
-**Click path (any scenario):** open live app → pick **Hospital**, **E-Commerce**, or **NYC Taxi** → **Run scan** → selective graph (one open fork) → Inspector **Gate** / **Fix** / **MBOM** → terminal shows `official_mcp ok` when live.
+**Click path (any scenario):** open live app → scenario segments **Hospital · Retail · Taxi** → **Run** → selective graph (impacted vs open fork) → Decision **Findings / Gate / Attestation** → sticky **Trip / Lift** → expand **Telemetry** if you want stage logs. When live, look for `official_mcp ok` in telemetry.
 
 ## The closed loop
 
@@ -73,7 +75,7 @@ Shipping path: **Google Antigravity is the primary workforce** (required depende
 | E-Commerce (PII) | 88 | `mart_customer_360` | `mart_product_catalog` |
 | NYC Taxi (freshness) | 65 | `mart_monthly_revenue` | `mart_trip_distance_stats` |
 
-Command Center includes a **Forensic Time Travel** scrubber (closed-loop narrative UI, not a live GMS history browser).
+**Timeline** (optional, off by default on the graph): closed-loop narrative scrubber — not a live GMS history browser.
 
 ## Stack
 
