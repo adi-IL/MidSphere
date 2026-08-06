@@ -23,9 +23,10 @@ These match `backend/agents/scenarios.py`. Selective halt leaves one open fork i
 ## Honesty
 
 - Offline demos use **job-local** quarantine and `sim` telemetry when GMS is unreachable.
-- Example MBOMs describe the **intended** write-back contract; they are **not** proof that tags were written to a live catalog.
+- When GMS is live and mutations are on, jobs report `mutations_applied=true` and terminal lines like `add_tags official_mcp ok` / `save_document official_mcp ok`.
+- Example MBOMs are offline judge artifacts; live MBOM may also use `save_document`.
 - Live MCP names are unprefixed (`get_lineage`, `add_tags`, `save_document`, …).
 - `execution_mode` ground truth: `antigravity_closed_loop` | `demo_closed_loop` | `live_mcp`.
-- Mutations only when GMS is reachable **and** `TOOLS_IS_MUTATION_ENABLED=true`.
 
-Command Center offline fixtures: `frontend/src/lib/demoJob.ts`.
+Command Center offline fixtures: `frontend/src/lib/demoJob.ts`.  
+Live catalog ops / GCE schedule: [scripts/README.md](../scripts/README.md).

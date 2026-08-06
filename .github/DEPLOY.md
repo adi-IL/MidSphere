@@ -170,3 +170,26 @@ Cloud Run env comes from `backend/cloudrun-env.yaml` on each deploy. Edit there,
 - [How do I use a Vercel API Access Token?](https://vercel.com/kb/guide/how-do-i-use-a-vercel-api-access-token)
 - [Git configuration / deploymentEnabled](https://vercel.com/docs/project-configuration/git-configuration)
 - Token keepalive discussion: https://github.com/vercel/vercel/discussions/5112
+
+## DataHub GMS (live demos)
+
+Cloud Run `DATAHUB_GMS_URL` must be a **publicly reachable** GMS (not laptop localhost).
+Hackathon path: GCE VM `datahub-quickstart` running official DataHub docker quickstart.
+
+After backend deploy, re-apply env if needed:
+
+```bash
+IP=$(gcloud compute instances describe datahub-quickstart --zone=us-central1-a \
+  --format='get(networkInterfaces[0].accessConfigs[0].natIP)')
+gcloud run services update midsphere-api --region=us-central1 \
+  --update-env-vars="DATAHUB_GMS_URL=http://${IP}:8080,TOOLS_IS_MUTATION_ENABLED=true,ANTIGRAVITY_ATTACH_MCP=true"
+```
+
+**Cost:** stop the VM when idle. Automate with Compute Engine instance schedules:
+
+```bash
+./scripts/gce_datahub_schedule.sh apply
+./scripts/gce_datahub_schedule.sh stop-now
+```
+
+See [scripts/README.md](../scripts/README.md).

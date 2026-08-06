@@ -42,9 +42,10 @@ Built for [Build with DataHub: The Agent Hackathon](https://datahub.devpost.com/
 | Connection chip **GMS offline** | No live catalog; quarantine is **job-local / advisory on the job** |
 | `execution_mode` | Ground truth: `antigravity_closed_loop` · `demo_closed_loop` · `live_mcp` |
 | Fix / MBOM tabs | Dry-run artifacts from `examples/` (scenario-correct) |
-| Live tags in DataHub UI | Only when GMS is up **and** `TOOLS_IS_MUTATION_ENABLED=true` (mutations off by default) |
+| Live tags / `save_document` | GMS up **and** `TOOLS_IS_MUTATION_ENABLED=true` → `mutations_applied=true` in the job |
+| Chip **API · closed loop · GMS live** | Frontend reached Cloud Run and GMS probe succeeded |
 
-**Click path:** open live app → pick **Hospital (Quality Circuit)** → **Run scan** → click **mart_demographics** (open) vs **mart_billing** (blocked) → Inspector **Gate** / **Fix** / **MBOM**.
+**Click path (any scenario):** open live app → pick **Hospital**, **E-Commerce**, or **NYC Taxi** → **Run scan** → selective graph (one open fork) → Inspector **Gate** / **Fix** / **MBOM** → terminal shows `official_mcp ok` when live.
 
 ## The closed loop
 
@@ -64,9 +65,15 @@ Trigger → Sentinel → Cascade → Breaker → Fix → MBOM
 
 Shipping path: **Google Antigravity is the primary workforce** (required dependency — one Agent, five MidSphere stage tools on Vertex Gemini, with official DataHub MCP attached when GMS is reachable). Stage tools call live MCP (`get_lineage`, `list_schema_fields`, `add_tags`, `save_document`) when mutations are enabled. If Antigravity fails, a **deterministic fallback** still completes the job with honest `sim` telemetry when offline.
 
-Primary demo: healthcare fork (`raw → staging → mart_billing | mart_demographics`). Selective halt: **billing can quarantine while demographics stays open**.
+**Scenarios (all first-class):**
 
-Also demos: ecommerce PII path and NYC taxi freshness path. Command Center includes a **Forensic Time Travel** scrubber (closed-loop narrative UI, not a live GMS history browser).
+| Scenario | Risk | Blocked fork | Open fork |
+| --- | --- | --- | --- |
+| Hospital (healthcare) | 61 | `mart_billing` | `mart_demographics` |
+| E-Commerce (PII) | 88 | `mart_customer_360` | `mart_product_catalog` |
+| NYC Taxi (freshness) | 65 | `mart_monthly_revenue` | `mart_trip_distance_stats` |
+
+Command Center includes a **Forensic Time Travel** scrubber (closed-loop narrative UI, not a live GMS history browser).
 
 ## Stack
 
@@ -108,10 +115,12 @@ PYTHONPATH=. uvicorn app.main:app --reload --port 8000
 cd frontend && npm install && npm run dev
 ```
 
-Healthcare sample into a **local** DataHub quickstart (requires DataHub sample datasets available locally — see `scripts/README.md`):
+Live catalog for Cloud Run cannot be laptop `localhost`. Operators run official DataHub **quickstart on GCE** and point `DATAHUB_GMS_URL` at the VM public IP (see `scripts/README.md`). Cost control:
 
 ```bash
-./scripts/load_healthcare.sh
+./scripts/gce_datahub_schedule.sh apply     # auto start weekdays / stop nightly
+./scripts/gce_datahub_schedule.sh stop-now  # stop immediately
+./scripts/gce_datahub_schedule.sh start-now # start for a demo
 ```
 
 ## API
