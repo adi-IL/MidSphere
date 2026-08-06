@@ -6,7 +6,7 @@
 
 <p align="center">
   <strong>Autonomous Context Circuit-Breaker Engine for Data Platforms</strong><br />
-  <em>DataHub · MCP · Antigravity · Gemini</em>
+  <em>DataHub · MCP · Python Antigravity SDK · Gemini</em>
 </p>
 
 Organizations deploy AI agents faster than they can keep catalog context trustworthy. Schema drift, quality defects, ungoverned PII, and missing ownership do not stop at an alert. Agents that continue to read the catalog inherit the damage.
