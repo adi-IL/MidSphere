@@ -38,10 +38,11 @@ Built for [Build with DataHub: The Agent Hackathon](https://datahub.devpost.com/
 | You see | Meaning |
 | --- | --- |
 | **Run scan** succeeds | Closed loop ran (Antigravity and/or deterministic fallback) |
+| Connection / health **GMS reachable** | API can probe live DataHub GMS (`datahub_reachable=true`) |
 | Connection chip **GMS offline** | No live catalog; quarantine is **job-local / advisory on the job** |
 | `execution_mode` | Ground truth: `antigravity_closed_loop` · `demo_closed_loop` · `live_mcp` |
 | Fix / MBOM tabs | Dry-run artifacts from `examples/` (scenario-correct) |
-| Live tags in DataHub UI | Only when **your** GMS is up **and** `TOOLS_IS_MUTATION_ENABLED=true` |
+| Live tags in DataHub UI | Only when GMS is up **and** `TOOLS_IS_MUTATION_ENABLED=true` (mutations off by default) |
 
 **Click path:** open live app → pick **Hospital (Quality Circuit)** → **Run scan** → click **mart_demographics** (open) vs **mart_billing** (blocked) → Inspector **Gate** / **Fix** / **MBOM**.
 
