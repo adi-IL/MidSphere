@@ -90,3 +90,7 @@ LICENSE
 ```
 
 Live: [midsphere.vercel.app](https://midsphere.vercel.app) · API on Cloud Run (see README).
+
+## OSS skills (bonus path)
+
+Open PR: [datahub-project/datahub-skills#88](https://github.com/datahub-project/datahub-skills/pull/88) — `datahub-circuit-breaker` + `datahub-quality-circuit`.

@@ -126,13 +126,20 @@ Healthcare sample into a **local** DataHub quickstart (requires DataHub sample d
 | GET | `/v1/gate/{urn}` | Consumer Gate decision |
 | GET | `/v1/gate-default-blocked` | Convenience gate for demo billing URN |
 
+## Open-source contribution (bonus)
+
+Upstream skills PR (open, CI green):  
+**[datahub-project/datahub-skills#88](https://github.com/datahub-project/datahub-skills/pull/88)** — `datahub-circuit-breaker` + `datahub-quality-circuit` (advisory quarantine + selective halt).
+
+Local mirrors: [skills/](./skills/).
+
 ## Repository layout
 
 ```
 frontend/          Command Center (Vercel)
 backend/           Closed-loop API (Cloud Run)
 examples/          Offline MBOMs, PR diffs, telemetry
-skills/            Draft skills (upstream contribution path)
+skills/            Upstream skill mirrors (see PR #88)
 scripts/           Local bootstrap helpers
 ARCHITECTURE.md    Shipping architecture (short)
 .github/           Path-filtered CI + deploy
