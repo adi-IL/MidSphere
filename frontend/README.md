@@ -1,37 +1,37 @@
 # frontend/
 
-MidSphere Command Center — React 18 + Vite + TypeScript + Tailwind + React Flow.
+MidSphere Command Center: React 18, Vite, TypeScript, Tailwind, React Flow.
 
-**Deploy target:** Vercel project `midsphere` only (from this directory / Actions).
+**Deploy target:** Vercel project `midsphere` only (this directory / GitHub Actions).
 
-## Layout (shipping)
+## Layout
 
 ```
 frontend/
 ├── src/
-│   ├── App.tsx                 # Shell: health, scenarios, jobs, stream
+│   ├── App.tsx                 # Health, scenarios, jobs, stream
 │   ├── components/
-│   │   ├── layout/             # TopBar, SwarmSidebar (Pipeline), InspectorDrawer (Decision), LoadingScreen
+│   │   ├── layout/             # TopBar, Pipeline (SwarmSidebar), Decision (InspectorDrawer), LoadingScreen
 │   │   ├── graph/              # LineageCanvas, CustomNode/Edge, TimeTravelBar (opt-in)
 │   │   ├── inspect/            # GatePreview, RagChat, DataHubAspectsViewer
 │   │   └── score/              # RiskScorecard, RiskRadarChart
 │   ├── lib/                    # api.ts, demoJob.ts, types.ts, status.ts
 │   ├── index.css
 │   └── main.tsx
-├── public/                     # favicon (sphere mark), logo.png (full brand), OG image
-├── vercel.json                 # vite + SPA rewrites; git.deploymentEnabled=false
+├── public/
+├── vercel.json                 # SPA rewrites; git.deploymentEnabled=false
 ├── package.json
 └── vite.config.ts
 ```
 
-## UI principles (shipping)
+## UI principles
 
-- **Minimal monochrome** (Geist / Linear-adjacent): hairline borders, scarce semantic color, no emoji.
-- **Progressive disclosure:** Telemetry collapsed by default; Timeline off until toggled; Decision primary tabs = Findings · Gate · Attestation; More = Fix · Aspects · Audit · Raw.
-- **Status vocabulary:** Connection Live/Offline · Catalog GMS on/off · Run kind Sample / Agent / Live MCP (`lib/status.ts`).
-- **Hero:** selective lineage graph. Side rails are quiet pipeline + decision actions (Trip / Lift sticky).
+- Minimal monochrome chrome. No emoji in product UI.
+- Progressive disclosure: Telemetry collapsed by default; Timeline off until toggled; Decision primary tabs are Findings, Gate, Attestation.
+- Status vocabulary in `lib/status.ts`: connection Live/Offline, catalog GMS on/off, run kind Sample / Agent / Live MCP.
+- Graph is the primary surface. Side rails hold pipeline stages and decision actions (Trip / Lift).
 
-Root [ARCHITECTURE.md](../ARCHITECTURE.md) and [README.md](../README.md) — telemetry honesty, real MCP names.
+See root [ARCHITECTURE.md](../ARCHITECTURE.md) and [README.md](../README.md).
 
 ## Local
 
@@ -45,20 +45,18 @@ npm run build
 
 | Env | Purpose |
 | --- | --- |
-| `VITE_API_BASE_URL` | Production Cloud Run base (baked at build; see `.env.production.example`) |
-| empty / local | Vite proxy → `http://127.0.0.1:8000` |
+| `VITE_API_BASE_URL` | Cloud Run base URL baked at production build |
+| empty (local) | Vite proxy to `http://127.0.0.1:8000` |
 
-**Production note:** `VITE_API_BASE_URL` must be a real URL, not a Sensitive-env placeholder. Prefer non-sensitive project env + GitHub secret `VITE_API_BASE_URL` so Actions and CLI deploys bake Cloud Run correctly.
+Production builds require a real Cloud Run URL in `VITE_API_BASE_URL` (project env and/or GitHub secret). A Sensitive-env redaction placeholder must not be baked into the client bundle.
 
-## Features (shipping)
+## Features
 
-- Multi-scenario sample fixtures (healthcare / ecommerce / nyctaxi) with honest simulated telemetry
-- Live jobs via `POST /v1/jobs` when API is up
-- Trip / Lift wired to backend for API jobs; sample path logs simulated STATUS only
-- Optional Timeline scrubber (closed-loop narrative UI, not GMS history)
+- Three sample scenario fixtures (healthcare, ecommerce, nyctaxi) with simulated telemetry when offline
+- Live jobs via `POST /v1/jobs` when the API is up
+- Trip / Lift call backend for API jobs; sample path logs simulated STATUS only
+- Optional Timeline scrubber (narrative only, not GMS history)
 
 ## Deploy
 
-GitHub Actions `deploy-frontend.yml` on `frontend/**` changes (durable `VERCEL_TOKEN`). See [`.github/DEPLOY.md`](../.github/DEPLOY.md).
-
-Status: **shipping Command Center** — minimal chrome, multi-scenario, honest run kinds.
+GitHub Actions `deploy-frontend.yml` on `frontend/**` changes. Requires durable `VERCEL_TOKEN`. See [`.github/DEPLOY.md`](../.github/DEPLOY.md).

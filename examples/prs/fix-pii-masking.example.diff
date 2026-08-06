@@ -8,3 +8,5 @@
 +    to_hex(sha256(social_security_number)) as social_security_number_hash,
      email_address
  from {{ ref('stg_customers') }}
+-- Dry-run FixArchitect output for ecommerce scenario (scenarios.py pr_path).
+-- Not applied to a live warehouse.

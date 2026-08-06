@@ -13,7 +13,7 @@
 | Property | Values | Meaning |
 | --- | --- | --- |
 | `midsphere.gate_status` | `OPEN` \| `BLOCKED` \| `LIFTED` | Consumer-facing gate state |
-| `midsphere.risk_score` | number 0–100 | Optional blast-radius risk |
+| `midsphere.risk_score` | number 0-100 | Optional blast-radius risk |
 | `midsphere.job_id` | string | Optional audit / job correlation id |
 | `midsphere.pr_url` | string | Optional remediation PR |
 

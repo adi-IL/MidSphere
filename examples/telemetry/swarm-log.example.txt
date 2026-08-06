@@ -1,15 +1,16 @@
-# Example MidSphere swarm telemetry (real MCP tool names only)
-# Offline / demo path uses STATUS "sim …" lines — never invent live TOOL success offline.
-14:02:01.012  ContextSentinel   STATUS  sim get_lineage urn=…raw_patients max_hops=2 downstream (demo_closed_loop; no live MCP call)
-14:02:01.180  ContextSentinel   STATUS  sim list_schema_fields urn=…raw_patients (demo_closed_loop; no live MCP call)
-14:02:01.310  ContextSentinel   FIND    NEGATIVE_BILLING severity=HIGH entity=…mart_billing
-14:02:01.311  ContextSentinel   FIND    DATE_SWAP severity=MEDIUM entity=…raw_patients
-14:02:02.100  CascadeAnalyzer   STATUS  sim get_lineage urn=…raw_patients downstream=true max_hops=2 (demo_closed_loop; no live MCP call)
+# Example MidSphere stage telemetry (real MCP tool names only)
+# Sample / offline path uses STATUS "sim ..." lines. Do not invent live TOOL success offline.
+# Aligns with healthcare scenario (risk 61, mart_billing quarantine).
+14:02:01.012  ContextSentinel   STATUS  sim get_lineage urn=urn:li:dataset:(urn:li:dataPlatform:sqlite,healthcare.raw_patients,PROD) max_hops=2 downstream (demo_closed_loop; no live MCP call)
+14:02:01.180  ContextSentinel   STATUS  sim list_schema_fields urn=urn:li:dataset:(urn:li:dataPlatform:sqlite,healthcare.raw_patients,PROD) (demo_closed_loop; no live MCP call)
+14:02:01.310  ContextSentinel   FIND    NEGATIVE_BILLING severity=HIGH entity=urn:li:dataset:(urn:li:dataPlatform:sqlite,healthcare.mart_billing,PROD)
+14:02:01.311  ContextSentinel   FIND    DATE_SWAP severity=MEDIUM entity=urn:li:dataset:(urn:li:dataPlatform:sqlite,healthcare.raw_patients,PROD)
+14:02:02.100  CascadeAnalyzer   STATUS  sim get_lineage urn=urn:li:dataset:(urn:li:dataPlatform:sqlite,healthcare.raw_patients,PROD) downstream=true max_hops=2 (demo_closed_loop; no live MCP call)
 14:02:03.400  CascadeAnalyzer   SCORE   risk=61 impacted=3 selective=true billing=yes demographics=no
-14:02:04.010  CircuitBreaker    STATUS  sim add_tags tag_urns=[QUARANTINED,CIRCUIT_BROKEN] entity_urns=1 (demo_closed_loop; no live MCP call)
+14:02:04.010  CircuitBreaker    STATUS  sim add_tags tag_urns=[QUARANTINED,CIRCUIT_BROKEN,MIDSPHERE_AUDIT] entity_urns=1 (demo_closed_loop; no live MCP call)
 14:02:04.200  CircuitBreaker    STATUS  sim add_structured_properties property=midsphere.gate_status value=BLOCKED (demo_closed_loop; no live MCP call)
 14:02:04.400  CircuitBreaker    STATUS  advisory quarantine recorded in job artifact only (no live DataHub write)
-14:02:05.100  FixArchitect      STATUS  sim get_dataset_queries urn=…raw_patients (demo_closed_loop; no live MCP call)
+14:02:05.100  FixArchitect      STATUS  sim get_dataset_queries urn=urn:li:dataset:(urn:li:dataPlatform:sqlite,healthcare.raw_patients,PROD) (demo_closed_loop; no live MCP call)
 14:02:06.800  FixArchitect      PR      dry_run path=examples/prs/fix-negative-billing.example.diff
 14:02:07.200  MBOMEngine        STATUS  sim save_document type=Analysis related_assets=1 (demo_closed_loop; no live MCP call)
-14:02:07.500  MBOMEngine        STATUS  mbom artifact path examples/mboms/healthcare-billing-mbom.example.md
+14:02:07.500  MBOMEngine        STATUS  mbom artifact path=examples/mboms/healthcare-billing-mbom.example.md

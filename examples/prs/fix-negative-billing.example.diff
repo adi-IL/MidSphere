@@ -1,7 +1,8 @@
 --- a/models/staging/stg_patients.sql
 +++ b/models/staging/stg_patients.sql
 @@ -1,12 +1,18 @@
- -- Example FixArchitect output (dry-run). Ground in get_dataset_queries in production.
+ -- Dry-run FixArchitect output for healthcare scenario (scenarios.py pr_path).
+ -- Not applied to a live warehouse. Ground in get_dataset_queries when GMS is live.
  with source as (
    select * from {{ ref('raw_patients') }}
  ),

@@ -12,7 +12,7 @@
 
 | URN | Gate status | Reason |
 | --- | --- | --- |
-| <!-- urn --> | BLOCKED / OPEN / LIFTED | <!-- … --> |
+| <!-- urn --> | BLOCKED / OPEN / LIFTED | <!-- ... --> |
 
 ## Next steps
 

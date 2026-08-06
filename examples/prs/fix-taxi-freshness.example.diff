@@ -5,3 +5,5 @@
  from {{ ref('stg_trip_fare') }}
 -where pickup_datetime >= current_date() - interval 7 day
 +where pickup_datetime >= current_date() - interval 1 day
+-- Dry-run FixArchitect output for nyctaxi scenario (scenarios.py pr_path).
+-- Not applied to a live warehouse.

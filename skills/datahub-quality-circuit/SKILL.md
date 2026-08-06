@@ -9,15 +9,15 @@ allowed-tools: Bash(datahub *)
 
 # DataHub Quality Circuit
 
-You are an expert DataHub quality + lineage analyst. Your role is to help users run a **selective** quality circuit-breaker loop: find what is wrong, score who is downstream, quarantine **only** the impacted fork, and leave durable notes so the next agent inherits the story.
+Role: DataHub quality and lineage assistant for a **selective** quality circuit-breaker loop: identify issues, score downstream impact, quarantine **only** the impacted fork, and leave durable notes for the next operator or agent.
 
-A naive breaker halts everything. A smart one leaves healthy marts open.
+A full-graph halt is incorrect when a healthy fork can remain open.
 
 ---
 
 ## Multi-Agent Compatibility
 
-Works across Claude Code, Cursor, Codex, Copilot, Gemini CLI, Windsurf, and other Agent Skills–compatible tools.
+Works across Claude Code, Cursor, Codex, Copilot, Gemini CLI, Windsurf, and other Agent Skills-compatible tools.
 
 **What works everywhere:**
 
@@ -56,7 +56,7 @@ Works across Claude Code, Cursor, Codex, Copilot, Gemini CLI, Windsurf, and othe
 
 ## Reference pipeline shape (healthcare sample)
 
-Official hackathon-style healthcare sample (ingest + lineage scripts — **not** `datapack load healthcare`):
+Official hackathon-style healthcare sample (ingest + lineage scripts - **not** `datapack load healthcare`):
 
 ```
 raw_patients ──→ staging_patients ──┬──→ mart_billing
@@ -84,20 +84,20 @@ raw_patients ──→ staging_patients ──┬──→ mart_billing
 
 Use MCP / CLI as available:
 
-- `list_schema_fields` — columns involved
-- `get_lineage` / `get_lineage_paths_between` — upstream/downstream
-- `get_dataset_queries` — golden SQL for fix suggestions
-- `search` — owners, tags, glossary (PII, certification)
+- `list_schema_fields` - columns involved
+- `get_lineage` / `get_lineage_paths_between` - upstream/downstream
+- `get_dataset_queries` - golden SQL for fix suggestions
+- `search` - owners, tags, glossary (PII, certification)
 
 Classify findings (examples):
 
 | Type | Severity guide |
 | --- | --- |
 | `NEGATIVE_BILLING` | HIGH |
-| `DATE_SWAP` | MEDIUM–HIGH |
-| `INVALID_AGE` / `NULL_PII_FIELD` | MEDIUM–HIGH |
+| `DATE_SWAP` | MEDIUM-HIGH |
+| `INVALID_AGE` / `NULL_PII_FIELD` | MEDIUM-HIGH |
 | `PII_UNGOVERNED` | MEDIUM |
-| `ORPHAN_OWNER` | LOW–MEDIUM |
+| `ORPHAN_OWNER` | LOW-MEDIUM |
 
 Emit structured findings: type, severity, entity URN, column path, evidence, rationale.
 
@@ -105,9 +105,9 @@ Emit structured findings: type, severity, entity URN, column path, evidence, rat
 
 ## Step 3: Blast radius (selective)
 
-1. Expand **downstream** with explicit hop limit (default 2–3; confirm if larger).
+1. Expand **downstream** with explicit hop limit (default 2-3; confirm if larger).
 2. Mark each node `impacted: true|false` with a reason.
-3. Compute a transparent risk score (example formula — adjust if the user has a house standard):
+3. Compute a transparent risk score (example formula - adjust if the user has a house standard):
 
 ```
 risk = clamp(0, 100,
@@ -143,7 +143,7 @@ Hand off write execution to Circuit Breaker contract:
 
 ## Step 5: Fix + MBOM narrative
 
-1. Ground fix ideas in `get_dataset_queries` + schema — not invented warehouse DDL.
+1. Ground fix ideas in `get_dataset_queries` + schema - not invented warehouse DDL.
 2. Draft a short **Model Bill of Materials / Quality Attestation** (markdown): summary, findings table, blast radius, quarantine state, lift criteria.
 3. Optionally persist with MCP `save_document` (`document_type`: Analysis/Insight, `related_assets`: impacted URNs) when mutations are enabled and the user approves.
 
@@ -155,15 +155,15 @@ Template: `templates/mbom.template.md`.
 
 1. Confirm tags/properties on quarantined URNs only.
 2. Confirm healthy fork lacks quarantine tags.
-3. Restate Consumer Gate policy: advisory metadata — not global MCP denial.
+3. Restate Consumer Gate policy: advisory metadata - not global MCP denial.
 
 ---
 
 ## Common Mistakes
 
-- **Halting demographics because billing is bad** — selective impact is the point.
-- **Calling sample data a datapack** — healthcare/nyc-taxi load via ingest scripts.
-- **Inventing incidents on OSS via MCP** — no `create_incident` MCP tool; Cloud GraphQL only if tier allows.
+- **Halting demographics because billing is bad** - selective impact is the point.
+- **Calling sample data a datapack** - healthcare/nyc-taxi load via ingest scripts.
+- **Inventing incidents on OSS via MCP** - no `create_incident` MCP tool; Cloud GraphQL only if tier allows.
 - **Skipping approval** on quarantine writes.
 - **Claiming live mutations** when MCP mutations are disabled.
 
@@ -175,10 +175,10 @@ Template: `templates/mbom.template.md`.
 
 ---
 
-## Remember
+## Operating rules
 
-- **Selective over nuclear.**
-- **Lineage before tags.**
-- **Approval before writes.**
-- **Honest tool names and honest mutation status.**
-- **Leave an MBOM so the next agent inherits the context.**
+- Prefer selective impact over nuclear halt.
+- Map lineage before applying tags.
+- Require approval before writes.
+- Use honest tool names and honest mutation status.
+- Leave an MBOM so the next agent inherits the context.

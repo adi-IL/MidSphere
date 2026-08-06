@@ -1,34 +1,53 @@
-# MidSphere Audit Attestation (MBOM) — NYC Taxi Revenue Freshness
+# MBOM: nyctaxi mart_monthly_revenue (offline example)
 
-**Document URN:** `urn:li:document:midsphere-nyctaxi-mbom`  
-**Execution Mode:** `antigravity_closed_loop`  
-**Data Platform:** `BigQuery`  
-**Target Entity:** `urn:li:dataset:(urn:li:dataPlatform:bigquery,nyctaxi.mart_monthly_revenue,PROD)`
+Offline judge artifact. Path referenced by `backend/agents/scenarios.py` as  
+`examples/mboms/nyctaxi-revenue-mbom.example.md`.  
+Document URN (scenario default): `urn:li:document:midsphere-nyctaxi-mbom`.
 
----
+When GMS mutations are enabled, a live job may also call MCP `save_document`.  
+This file remains the dry-run / sample attestation.
 
-## Executive Summary
+| Field | Value |
+| --- | --- |
+| Scenario | nyctaxi |
+| Risk score | 65 |
+| Quarantine target | `urn:li:dataset:(urn:li:dataPlatform:bigquery,nyctaxi.mart_monthly_revenue,PROD)` |
+| Open fork | `urn:li:dataset:(urn:li:dataPlatform:bigquery,nyctaxi.mart_trip_distance_stats,PROD)` |
+| Gate status | BLOCKED (advisory) |
+| Sample execution mode | `demo_closed_loop` |
+| Mutations in this artifact | false |
 
-MidSphere ContextSentinel detected a **FRESHNESS_VIOLATION** (HIGH) on `mart_monthly_revenue`. Ingestion lag exceeded 72 hours (SLA constraint: 24h), distorting executive monthly financial reporting.
+## Summary
 
----
+ContextSentinel findings: freshness violation on monthly revenue and schema drift on raw trips. CascadeAnalyzer marks selective impact: **mart_monthly_revenue** impacted, **mart_trip_distance_stats** open.
 
-## Audit Findings
+## Findings
 
-| Finding ID | Type | Severity | Entity URN | Column | Rationale |
+| ID | Type | Severity | Entity | Column | Rationale (scenario) |
 | --- | --- | --- | --- | --- | --- |
-| `f_taxi1` | `FRESHNESS_VIOLATION` | **HIGH** | `...nyctaxi.mart_monthly_revenue,PROD)` | `pickup_datetime` | Stale ingestion skews executive monthly revenue reports |
-| `f_taxi2` | `SCHEMA_DRIFT` | **MEDIUM** | `...nyctaxi.raw_yellow_trips,PROD)` | `extra_surcharge` | Unannounced column addition causes dbt compilation errors |
+| f_taxi1 | FRESHNESS_VIOLATION | HIGH | mart_monthly_revenue | pickup_datetime | Stale ingestion skews executive monthly revenue reports |
+| f_taxi2 | SCHEMA_DRIFT | MEDIUM | raw_yellow_trips | extra_surcharge | Unannounced column addition causes dbt compilation errors |
 
----
+## Blast radius
 
-## Selective Circuit Breaking
+```
+raw_yellow_trips -> stg_trip_fare -> mart_monthly_revenue      [impacted]
+                                  -> mart_trip_distance_stats  [open]
+```
 
-- **Quarantined Asset:** `mart_monthly_revenue` set to `BLOCKED` (advisory). Intended tags: `PIPELINE_LAG`, `QUARANTINED`, `MIDSPHERE_AUDIT` — written live only when GMS + mutations are enabled; otherwise job-local on the MidSphere job artifact.
-- **Open Lineage Fork:** `mart_trip_distance_stats` remains **OPEN** with zero risk score.
+## Quarantine (advisory)
 
----
+Tags: `PIPELINE_LAG`, `QUARANTINED`, `MIDSPHERE_AUDIT`  
+Property: `midsphere.gate_status = BLOCKED`  
+Property: `midsphere.risk_score = 65`
 
 ## Remediation
 
-The FixArchitect generated a dry-run BigQuery partition fix PR at `examples/prs/fix-taxi-freshness.example.diff` adjusting the partition filter window.
+Dry-run path: `examples/prs/fix-taxi-freshness.example.diff`  
+Intent: tighten partition filter window on the revenue mart.
+
+## Lift criteria
+
+1. Restore freshness SLA or merge equivalent fix.  
+2. Re-run closed loop with clean result.  
+3. Lift quarantine (live MCP when mutations are enabled; else job-local lift).

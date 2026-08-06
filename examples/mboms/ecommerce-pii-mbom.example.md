@@ -1,34 +1,53 @@
-# MidSphere Audit Attestation (MBOM) — E-Commerce PII Governance
+# MBOM: ecommerce mart_customer_360 (offline example)
 
-**Document URN:** `urn:li:document:midsphere-ecommerce-mbom`  
-**Execution Mode:** `antigravity_closed_loop`  
-**Data Platform:** `Snowflake` / `Looker` / `dbt`  
-**Target Entity:** `urn:li:dataset:(urn:li:dataPlatform:looker,ecommerce.mart_customer_360,PROD)`
+Offline judge artifact. Path referenced by `backend/agents/scenarios.py` as  
+`examples/mboms/ecommerce-pii-mbom.example.md`.  
+Document URN (scenario default): `urn:li:document:midsphere-ecommerce-mbom`.
 
----
+When GMS mutations are enabled, a live job may also call MCP `save_document`.  
+This file remains the dry-run / sample attestation.
 
-## Executive Summary
+| Field | Value |
+| --- | --- |
+| Scenario | ecommerce |
+| Risk score | 88 |
+| Quarantine target | `urn:li:dataset:(urn:li:dataPlatform:looker,ecommerce.mart_customer_360,PROD)` |
+| Open fork | `urn:li:dataset:(urn:li:dataPlatform:snowflake,ecommerce.mart_product_catalog,PROD)` |
+| Gate status | BLOCKED (advisory) |
+| Sample execution mode | `demo_closed_loop` |
+| Mutations in this artifact | false |
 
-MidSphere ContextSentinel detected **UNGOVERNED_PII** (CRITICAL) exposed in `mart_customer_360`. Raw unhashed Social Security Numbers were being transmitted to business intelligence dashboards without column-level encryption or masking policies.
+## Summary
 
----
+ContextSentinel findings: unmasked SSN in the customer analytics mart and missing ownership on raw customers. CascadeAnalyzer marks selective impact: **mart_customer_360** impacted, **mart_product_catalog** open.
 
-## Audit Findings
+## Findings
 
-| Finding ID | Type | Severity | Entity URN | Column | Rationale |
+| ID | Type | Severity | Entity | Column | Evidence |
 | --- | --- | --- | --- | --- | --- |
-| `f_pii1` | `UNGOVERNED_PII` | **CRITICAL** | `...ecommerce.mart_customer_360,PROD)` | `social_security_number` | Unmasked PII in analytics mart violates typical privacy / governance policy |
-| `f_pii2` | `MISSING_OWNER` | **HIGH** | `...ecommerce.raw_customers,PROD)` | `owner` | Unassigned dataset ownership metadata |
+| f_pii1 | UNGOVERNED_PII | CRITICAL | mart_customer_360 | social_security_number | Raw unhashed SSN exposed in customer_360 analytics mart |
+| f_pii2 | MISSING_OWNER | HIGH | raw_customers | owner | Dataset ownership metadata is unassigned |
 
----
+## Blast radius
 
-## Selective Circuit Breaking
+```
+raw_customers -> stg_customers -> mart_customer_360     [impacted]
+                               -> mart_product_catalog  [open]
+```
 
-- **Quarantined Asset:** `mart_customer_360` set to `BLOCKED` (advisory). Intended tags: `QUARANTINED`, `CIRCUIT_BROKEN`, `MIDSPHERE_AUDIT` — written live only when GMS + mutations are enabled; otherwise job-local on the MidSphere job artifact.
-- **Open Lineage Fork:** `mart_product_catalog` remains **OPEN** with zero risk score.
+## Quarantine (advisory)
 
----
+Tags: `PII_LEAK`, `QUARANTINED`, `MIDSPHERE_AUDIT`  
+Property: `midsphere.gate_status = BLOCKED`  
+Property: `midsphere.risk_score = 88`
 
 ## Remediation
 
-The FixArchitect generated a dry-run dbt column-level hashing PR at `examples/prs/fix-pii-masking.example.diff` replacing `social_security_number` with `to_hex(sha256(social_security_number))`.
+Dry-run path: `examples/prs/fix-pii-masking.example.diff`  
+Intent: hash `social_security_number` in the mart model (dbt-style).
+
+## Lift criteria
+
+1. Apply masking policy or merge equivalent fix.  
+2. Re-run closed loop with clean result.  
+3. Lift quarantine (live MCP when mutations are enabled; else job-local lift).

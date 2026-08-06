@@ -10,7 +10,7 @@ raw ──→ staging ──┬──→ mart_A   (impacted)
 ```
 
 **Do:** quarantine `mart_A` (and optionally `staging` if it still feeds only bad paths that cannot be filtered).  
-**Don't:** quarantine `mart_B` “to be safe” without evidence.
+**Don't:** quarantine `mart_B` "to be safe" without evidence.
 
 ## Linear pipeline
 
@@ -18,8 +18,8 @@ raw ──→ staging ──┬──→ mart_A   (impacted)
 raw ──→ staging ──→ mart
 ```
 
-Impact often cascades fully — still document hop distance and owners.
+Impact often cascades fully - still document hop distance and owners.
 
 ## Sample data note
 
-Official DataHub sample **healthcare** plants quality issues (negative billing, invalid ages, date swaps). Load via dataset ingest + lineage scripts — not `datahub datapack load healthcare`. Datapacks such as `showcase-ecommerce` / `bootstrap` are separate.
+Official DataHub sample **healthcare** plants quality issues (negative billing, invalid ages, date swaps). Load via dataset ingest + lineage scripts - not `datahub datapack load healthcare`. Datapacks such as `showcase-ecommerce` / `bootstrap` are separate.

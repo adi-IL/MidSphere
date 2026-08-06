@@ -4,17 +4,17 @@
 **URN:** <!-- urn -->  
 **Date:** <!-- ISO date -->  
 **Gate:** OPEN / BLOCKED / LIFTED  
-**Risk:** <!-- 0–100 -->
+**Risk:** <!-- 0-100 -->
 
 ## Summary
 
-<!-- 2–4 sentences -->
+<!-- 2-4 sentences -->
 
 ## Findings
 
 | Type | Severity | Evidence |
 | --- | --- | --- |
-| <!-- … --> | <!-- … --> | <!-- … --> |
+| <!-- ... --> | <!-- ... --> | <!-- ... --> |
 
 ## Blast radius
 
@@ -24,7 +24,7 @@
 
 - Tags:
 - Structured properties:
-- Consumer Gate policy: advisory metadata — not global MCP denial
+- Consumer Gate policy: advisory metadata - not global MCP denial
 
 ## Remediation
 
