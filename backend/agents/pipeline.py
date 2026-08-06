@@ -19,6 +19,7 @@ from datetime import datetime, timezone
 
 from agents.scenarios import get_scenario_spec
 from models.artifacts import (
+    BlastNode,
     JobArtifact,
     JobEvent,
     QuarantineReceipt,
@@ -357,8 +358,28 @@ def run_closed_loop_fallback(
     emit(
         "CascadeAnalyzer",
         "SCORE",
-        f"risk={risk} selective=true impacted={len(impacted)}",
+        f"risk={risk} selective=true impacted={len(impacted)} "
+        f"live_mcp_reads={live_tool_calls}",
     )
+    if live_tool_calls > 0 and nodes:
+        # Annotate root only; pack still owns selective impact flags
+        root_n = nodes[0]
+        root_reason = (
+            f"{root_n.reason or 'root'} | live MCP reads={live_tool_calls} "
+            "(scenario pack still drives selective halt)"
+        )
+        nodes = [
+            BlastNode(
+                urn=root_n.urn,
+                name=root_n.name,
+                hop=root_n.hop,
+                impacted=root_n.impacted,
+                reason=root_reason,
+            )
+            if i == 0
+            else n
+            for i, n in enumerate(nodes)
+        ]
 
     quarantine = None
     pr = None
@@ -574,6 +595,14 @@ def run_closed_loop_fallback(
             "risk_score": risk,
             "nodes": [n.model_dump() for n in nodes],
             "selective": True,
+            "live_enrichment": {
+                "live_mcp_reads": live_tool_calls,
+                "note": (
+                    "live MCP reads annotated; scenario pack drives findings and selective halt"
+                    if live_tool_calls > 0
+                    else "scenario pack drives findings and selective halt (no live MCP reads)"
+                ),
+            },
         },
         quarantine=quarantine,
         pr=pr,

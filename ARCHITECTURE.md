@@ -30,8 +30,8 @@ POST /v1/jobs
 
 | Stage | Tool | Shipping behavior |
 | --- | --- | --- |
-| Audit | `midsphere_context_sentinel_audit` | Scenario findings; live MCP reads when GMS is up |
-| Cascade | `midsphere_cascade_analyzer` | Selective nodes and risk (healthcare 61 / ecommerce 88 / nyctaxi 65) |
+| Audit | `midsphere_context_sentinel_audit` | Scenario findings (spine); live MCP `get_lineage` / `list_schema_fields` when GMS is up (telemetry + enrichment only) |
+| Cascade | `midsphere_cascade_analyzer` | Selective nodes and risk from packs (healthcare 61 / ecommerce 88 / nyctaxi 65); live lineage annotated on root when MCP succeeds |
 | Break | `midsphere_circuit_breaker_trip` | Live `add_tags` when mutations are on; else job-local |
 | Fix | `midsphere_fix_architect` | Dry-run path under `examples/prs/*` |
 | MBOM | `midsphere_mbom_engine` | Live `save_document` when mutations are on; else `examples/mboms/*` |
@@ -84,7 +84,9 @@ Minimal monochrome shell (no emoji). Default layout:
 | Top | Scenario segments (Hospital, Retail, Taxi), Live / GMS status, **Run** |
 | Left Pipeline | Run kind (Sample / Agent / Live MCP), metrics strip, stage stepper; Telemetry collapsed by default |
 | Center | Selective lineage graph; optional Timeline (narrative only) |
-| Right Decision | Findings, Gate, Attestation (plus More); sticky Trip / Lift |
+| Right Decision | Findings, Gate (job view + optional live `GET /v1/gate` probe), Attestation (plus More); sticky Trip / Lift |
+
+Live MCP success is recorded under `blast_radius.live_enrichment` and telemetry. Selective impact flags remain pack-driven so demos stay reliable when GMS is partial.
 
 `VITE_API_BASE_URL` is baked at build time to Cloud Run. Empty or incorrect base yields Offline status and sample fixtures.
 

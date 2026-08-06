@@ -152,13 +152,24 @@ cmd_start_now() {
   ip="$(gcloud compute instances describe "$INSTANCE" --project="$PROJECT" --zone="$ZONE" \
     --format='get(networkInterfaces[0].accessConfigs[0].natIP)')"
   echo "External IP: $ip  (IP often changes after stop/start)"
-  # Always re-point Cloud Run — IP change + prior deploys may reset to localhost
+  # Containers may stay stopped after VM resume; start DataHub stack
+  echo "Starting DataHub docker containers on VM (if present) ..."
+  gcloud compute ssh "$INSTANCE" --project="$PROJECT" --zone="$ZONE" --command='
+    sudo systemctl start docker 2>/dev/null || true
+    for c in datahub-mysql-1 datahub-opensearch-1 datahub-kafka-broker-1; do
+      sudo docker start "$c" 2>/dev/null || true
+    done
+    sleep 5
+    sudo docker start datahub-datahub-gms-quickstart-1 datahub-frontend-quickstart-1 datahub-datahub-actions-quickstart-1 2>/dev/null || true
+    sudo docker ps --format "table {{.Names}}\t{{.Status}}" | head -15
+  ' 2>/dev/null || echo "WARN: could not SSH to start containers; start them manually if GMS stays down"
+  # Always re-point Cloud Run (IP change + prior deploys may reset to localhost)
   cmd_repoint_cloudrun "$ip"
   cmd_wait_gms "$ip" 40 || true
   echo
   echo "Verify API:"
   echo "  curl -sS https://midsphere-api-1053689941073.us-central1.run.app/v1/health | jq .datahub_reachable"
-  echo "Then hard-refresh https://midsphere.vercel.app (chip should say GMS live)."
+  echo "Then hard-refresh https://midsphere.vercel.app (status should show Live and GMS)."
   cmd_status
 }
 

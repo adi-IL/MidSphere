@@ -189,6 +189,7 @@ export function InspectorDrawer({
               properties={
                 nodeBlocked ? (job.quarantine?.properties ?? {}) : {}
               }
+              probeUrn={selectedUrn}
             />
             {!nodeBlocked && node && (
               <p className="text-2xs leading-relaxed text-faint">
@@ -196,6 +197,37 @@ export function InspectorDrawer({
                   ? "On the blast path, but not in the selective quarantine set."
                   : "Selective halt: this fork is outside the quarantine set."}
               </p>
+            )}
+            {job.blast_radius.live_enrichment && (
+              <div className="rounded border border-line bg-canvas p-3">
+                <div className="text-2xs font-medium text-faint">
+                  Catalog enrichment
+                </div>
+                <p className="mt-1 text-2xs leading-relaxed text-mute">
+                  {job.blast_radius.live_enrichment.note ||
+                    "Scenario pack drives selective halt."}
+                </p>
+                <dl className="mt-2 space-y-1 font-mono text-2xs text-faint">
+                  <div className="flex justify-between gap-2">
+                    <dt>live_mcp_reads</dt>
+                    <dd className="text-mute">
+                      {job.blast_radius.live_enrichment.live_mcp_reads ?? 0}
+                    </dd>
+                  </div>
+                  {(job.blast_radius.live_enrichment.lineage_urn_mentions ??
+                    0) > 0 && (
+                    <div className="flex justify-between gap-2">
+                      <dt>lineage_urn_mentions</dt>
+                      <dd className="text-mute">
+                        {
+                          job.blast_radius.live_enrichment
+                            .lineage_urn_mentions
+                        }
+                      </dd>
+                    </div>
+                  )}
+                </dl>
+              </div>
             )}
           </div>
         )}

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import uuid
 from datetime import datetime, timezone
 from typing import Any
@@ -21,6 +22,8 @@ from models.artifacts import (
     JobEvent,
     QuarantineReceipt,
 )
+
+_URN_RE = re.compile(r"urn:li:[^\s\"'<>]+")
 
 
 def _ts() -> str:
@@ -38,6 +41,10 @@ def _mutations_enabled() -> bool:
         "true",
         "yes",
     )
+
+
+def _preview_urn_count(preview: str) -> int:
+    return len(_URN_RE.findall(preview or ""))
 
 
 def _try_official_mcp(
@@ -85,12 +92,19 @@ class MidSphereJobBuilder:
         self.mutations_applied: bool = False
         self.datahub_reachable: bool = False
         self.operator_summary: str = ""
+        # Live MCP enrichment (scenario pack remains selective-halt spine)
+        self.live_enrichment: dict[str, Any] = {
+            "live_mcp_reads": 0,
+            "tools_ok": [],
+            "lineage_urn_mentions": 0,
+            "schema_preview_chars": 0,
+            "note": "scenario pack drives findings and selective halt",
+        }
         self._audit_done = False
         self._cascade_done = False
         self._break_done = False
         self._fix_done = False
         self._mbom_done = False
-
     def _emit(self, agent: str, kind: str, message: str) -> None:
         self.events.append(
             JobEvent(ts=_ts(), agent=agent, kind=kind, message=message)  # type: ignore[arg-type]
@@ -122,19 +136,55 @@ class MidSphereJobBuilder:
             ],
             mutations=False,
         )
+        tools_ok: list[str] = []
+        lineage_urns = 0
+        schema_chars = 0
         for c in calls:
             if c.get("ok"):
+                tools_ok.append(str(c.get("tool") or ""))
                 self._emit(
                     "ContextSentinel",
                     "TOOL",
                     f"{c.get('tool')} official_mcp ok",
                 )
+                preview = str(c.get("content_preview") or "")
+                urn_hits = _preview_urn_count(preview)
+                if c.get("tool") == "get_lineage" and urn_hits:
+                    lineage_urns = urn_hits
+                    self._emit(
+                        "ContextSentinel",
+                        "STATUS",
+                        f"live get_lineage content_urns≈{urn_hits} "
+                        "(scenario pack still drives selective halt)",
+                    )
+                if c.get("tool") == "list_schema_fields" and preview:
+                    schema_chars = len(preview)
+                    self._emit(
+                        "ContextSentinel",
+                        "STATUS",
+                        f"live list_schema_fields preview_chars={schema_chars} "
+                        "(schema grounded; findings remain scenario pack)",
+                    )
             elif c.get("tool"):
                 self._emit(
                     "ContextSentinel",
                     "STATUS",
                     f"official_mcp {c.get('tool')} fail {str(c.get('error', ''))[:100]}",
                 )
+
+        self.live_enrichment = {
+            "live_mcp_reads": len(tools_ok),
+            "tools_ok": tools_ok,
+            "lineage_urn_mentions": lineage_urns,
+            "schema_preview_chars": schema_chars,
+            "note": (
+                "live MCP reads annotated; scenario pack drives findings and selective halt"
+                if tools_ok
+                else "scenario pack drives findings and selective halt (no live MCP reads)"
+            ),
+        }
+        if tools_ok:
+            self.datahub_reachable = True
 
         spec = _get_scenario_spec(self.root_urn)
         self.findings = list(spec["findings"])
@@ -151,7 +201,8 @@ class MidSphereJobBuilder:
                 "ok": True,
                 "findings_count": len(self.findings),
                 "findings": [f.model_dump() for f in self.findings],
-                "live_mcp_reads": len([c for c in calls if c.get("ok")]),
+                "live_mcp_reads": len(tools_ok),
+                "live_enrichment": self.live_enrichment,
             }
         )
 
@@ -170,15 +221,76 @@ class MidSphereJobBuilder:
             "TOOL",
             "midsphere_cascade_analyzer (antigravity custom tool)",
         )
+        # Optional second live lineage read for cascade (enrichment only)
+        cascade_calls = _try_official_mcp(
+            [
+                (
+                    "get_lineage",
+                    {"urn": self.root_urn, "upstream": False, "max_hops": max_hops},
+                ),
+            ],
+            mutations=False,
+        )
+        for c in cascade_calls:
+            if c.get("ok"):
+                self.datahub_reachable = True
+                self.live_enrichment["live_mcp_reads"] = int(
+                    self.live_enrichment.get("live_mcp_reads") or 0
+                ) + 1
+                tools = list(self.live_enrichment.get("tools_ok") or [])
+                if "get_lineage" not in tools:
+                    tools.append("get_lineage")
+                self.live_enrichment["tools_ok"] = tools
+                preview = str(c.get("content_preview") or "")
+                urn_hits = _preview_urn_count(preview)
+                if urn_hits:
+                    self.live_enrichment["lineage_urn_mentions"] = max(
+                        int(self.live_enrichment.get("lineage_urn_mentions") or 0),
+                        urn_hits,
+                    )
+                self._emit(
+                    "CascadeAnalyzer",
+                    "TOOL",
+                    "get_lineage official_mcp ok",
+                )
+                self._emit(
+                    "CascadeAnalyzer",
+                    "STATUS",
+                    f"live lineage annotated content_urns≈{urn_hits}; "
+                    "pack nodes remain selective-halt source of truth",
+                )
+            elif c.get("tool"):
+                self._emit(
+                    "CascadeAnalyzer",
+                    "STATUS",
+                    f"official_mcp {c.get('tool')} fail {str(c.get('error', ''))[:100]}",
+                )
+
         spec = _get_scenario_spec(self.root_urn)
-        self.nodes = spec["nodes"]
-        self.risk_score = spec["risk_score"]
+        self.nodes = list(spec["nodes"])
+        self.risk_score = int(spec["risk_score"])
+        # Annotate root node when live lineage succeeded (do not rewrite selective impact)
+        live_reads = int(self.live_enrichment.get("live_mcp_reads") or 0)
+        if live_reads > 0 and self.nodes:
+            root = self.nodes[0]
+            note = (
+                f"{root.reason or 'root'} | live MCP lineage ok "
+                f"(urn_mentions≈{self.live_enrichment.get('lineage_urn_mentions', 0)})"
+            )
+            self.nodes[0] = BlastNode(
+                urn=root.urn,
+                name=root.name,
+                hop=root.hop,
+                impacted=root.impacted,
+                reason=note,
+            )
 
         impacted = [n for n in self.nodes if n.impacted]
         self._emit(
             "CascadeAnalyzer",
             "SCORE",
-            f"risk={self.risk_score} selective=true impacted={len(impacted)}",
+            f"risk={self.risk_score} selective=true impacted={len(impacted)} "
+            f"live_mcp_reads={live_reads}",
         )
         self._cascade_done = True
         return json.dumps(
@@ -187,6 +299,7 @@ class MidSphereJobBuilder:
                 "risk_score": self.risk_score,
                 "nodes": [n.model_dump() for n in self.nodes],
                 "selective": True,
+                "live_enrichment": self.live_enrichment,
             }
         )
 
@@ -433,6 +546,7 @@ class MidSphereJobBuilder:
                 "risk_score": self.risk_score,
                 "nodes": [n.model_dump() for n in self.nodes],
                 "selective": True,
+                "live_enrichment": self.live_enrichment,
             },
             quarantine=self.quarantine,
             pr=self.pr,
@@ -440,5 +554,5 @@ class MidSphereJobBuilder:
             events=self.events,
             execution_mode=execution_mode,  # type: ignore[arg-type]
             mutations_applied=self.mutations_applied,
-            datahub_reachable=datahub_reachable,
+            datahub_reachable=datahub_reachable or self.datahub_reachable,
         )

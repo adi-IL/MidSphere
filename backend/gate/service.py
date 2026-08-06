@@ -1,4 +1,4 @@
-"""Consumer Gate — MidSphere policy, not platform-wide MCP auto-denial."""
+"""Consumer Gate: MidSphere policy, not platform-wide MCP auto-denial."""
 
 from __future__ import annotations
 
@@ -27,7 +27,7 @@ def evaluate_from_job(urn: str, job: JobArtifact | None) -> GateDecision:
             status="BLOCKED",
             reason=(
                 "Advisory quarantine: tag QUARANTINED / gate_status=BLOCKED "
-                "(MidSphere Consumer Gate policy — not platform-wide MCP denial)"
+                "(MidSphere Consumer Gate policy; not platform-wide MCP denial)"
             ),
             job_id=job.job_id,
             pr_url=(job.pr or {}).get("url"),

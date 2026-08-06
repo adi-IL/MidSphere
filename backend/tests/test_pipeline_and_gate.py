@@ -64,6 +64,9 @@ def test_closed_loop_full_artifact_honest_telemetry():
     assert job.mbom is not None
     assert job.execution_mode == "demo_closed_loop"
     assert job.mutations_applied is False
+    enrich = job.blast_radius.get("live_enrichment") or {}
+    assert enrich.get("live_mcp_reads", 0) == 0
+    assert "scenario pack" in str(enrich.get("note", "")).lower()
 
     # Honesty: demo path must not emit fake live TOOL events
     real_tools = extract_tool_names_from_events(job.events)

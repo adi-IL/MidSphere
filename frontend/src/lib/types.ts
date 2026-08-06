@@ -66,7 +66,18 @@ export interface JobArtifact {
   mode: string;
   status: string;
   findings: AuditFinding[];
-  blast_radius: { risk_score: number; nodes: BlastNode[]; selective?: boolean };
+  blast_radius: {
+    risk_score: number;
+    nodes: BlastNode[];
+    selective?: boolean;
+    live_enrichment?: {
+      live_mcp_reads?: number;
+      tools_ok?: string[];
+      lineage_urn_mentions?: number;
+      schema_preview_chars?: number;
+      note?: string;
+    };
+  };
   quarantine: QuarantineReceipt | null;
   pr: { status: string; path?: string; url?: string; diff_summary?: string } | null;
   mbom: { path?: string; document_urn?: string; related_assets?: string[] } | null;
