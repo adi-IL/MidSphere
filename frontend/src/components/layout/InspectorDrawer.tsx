@@ -1,3 +1,4 @@
+import { useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { JobArtifact } from "../../lib/types";
@@ -7,6 +8,7 @@ import { RiskRadarChart } from "../score/RiskRadarChart";
 import { GatePreview } from "../inspect/GatePreview";
 import { DataHubAspectsViewer } from "../inspect/DataHubAspectsViewer";
 import { RagChat } from "../inspect/RagChat";
+import { ChevronDown } from "lucide-react";
 
 type Tab = "findings" | "gate" | "aspects" | "fix" | "mbom" | "rag" | "raw";
 
@@ -19,13 +21,16 @@ interface Props {
   onLiftQuarantine?: () => void;
 }
 
-const TABS: { id: Tab; label: string }[] = [
+const PRIMARY_TABS: { id: Tab; label: string }[] = [
   { id: "findings", label: "Findings" },
   { id: "gate", label: "Gate" },
-  { id: "aspects", label: "Aspects" },
+  { id: "mbom", label: "Attestation" },
+];
+
+const MORE_TABS: { id: Tab; label: string }[] = [
   { id: "fix", label: "Fix" },
-  { id: "mbom", label: "MBOM" },
-  { id: "rag", label: "Audit Q&A" },
+  { id: "aspects", label: "Aspects" },
+  { id: "rag", label: "Audit" },
   { id: "raw", label: "Raw" },
 ];
 
@@ -37,7 +42,7 @@ export function InspectorDrawer({
   onTripCircuit,
   onLiftQuarantine,
 }: Props) {
-
+  const [moreOpen, setMoreOpen] = useState(false);
   const node = job.blast_radius.nodes.find((n) => n.urn === selectedUrn);
   const gate = job.quarantine?.gateStatus ?? "OPEN";
   const nodeBlocked =
@@ -45,35 +50,42 @@ export function InspectorDrawer({
     gate === "BLOCKED" &&
     Boolean(job.quarantine?.entityUrns.includes(node?.urn ?? ""));
 
+  const isMoreTab = MORE_TABS.some((t) => t.id === tab);
+
   return (
-    <aside className="flex w-[380px] shrink-0 flex-col border-l border-line bg-panel">
+    <aside className="flex w-[340px] shrink-0 flex-col border-l border-line bg-panel">
       <div className="shrink-0 border-b border-line p-3">
         <div className="flex items-center justify-between gap-2">
-          <div className="font-mono text-[10px] uppercase tracking-widest text-faint">
-            Inspector
-          </div>
+          <span className="text-2xs font-medium text-mute">Decision</span>
           {node && (
             <span
-              className={`rounded border px-1.5 py-0.5 font-mono text-[10px] uppercase ${
+              className={`rounded border px-1.5 py-0.5 text-[10px] ${
                 node.impacted
                   ? "border-bad/30 text-bad"
-                  : "border-good/30 text-good"
+                  : "border-line2 text-mute"
               }`}
             >
-              {node.impacted ? "impacted" : "open"}
+              {node.impacted ? "Impacted" : "Open"}
             </span>
           )}
         </div>
-        <div className="mt-1 text-sm font-medium tracking-tight text-ink">
+        <div className="mt-1 truncate text-sm font-medium tracking-tight text-ink">
           {node?.name ?? "Select a node"}
         </div>
-        <div className="mt-1 truncate font-mono text-2xs text-mute" title={selectedUrn ?? undefined}>
-          {selectedUrn}
-        </div>
-        {node?.reason && (
-          <p className="mt-1.5 text-2xs leading-relaxed text-faint">{node.reason}</p>
+        {selectedUrn && (
+          <div
+            className="mt-1 truncate font-mono text-2xs text-faint"
+            title={selectedUrn}
+          >
+            {selectedUrn}
+          </div>
         )}
-        <div className="mt-3 grid grid-cols-1 gap-2">
+        {node?.reason && (
+          <p className="mt-1.5 text-2xs leading-relaxed text-faint">
+            {node.reason}
+          </p>
+        )}
+        <div className="mt-3">
           <RiskScorecard
             score={job.blast_radius.risk_score}
             impacted={job.blast_radius.nodes.filter((n) => n.impacted).length}
@@ -82,43 +94,84 @@ export function InspectorDrawer({
         </div>
       </div>
 
-      <div className="flex shrink-0 gap-0.5 overflow-x-auto border-b border-line px-2 py-1.5 custom-scrollbar">
-        {TABS.map((t) => (
+      {/* Primary tabs + More */}
+      <div className="flex shrink-0 items-center gap-0.5 border-b border-line px-2 py-1.5">
+        {PRIMARY_TABS.map((t) => (
           <button
             key={t.id}
             type="button"
-            onClick={() => onTab(t.id)}
-            className={`rounded px-2 py-1 font-mono text-[10px] uppercase tracking-wide whitespace-nowrap ${
+            onClick={() => {
+              onTab(t.id);
+              setMoreOpen(false);
+            }}
+            className={`rounded px-2 py-1 text-2xs whitespace-nowrap transition-colors ${
               tab === t.id
-                ? "bg-elevated text-ink border border-line"
+                ? "bg-elevated text-ink"
                 : "text-mute hover:text-ink"
             }`}
           >
             {t.label}
           </button>
         ))}
+        <div className="relative ml-auto">
+          <button
+            type="button"
+            onClick={() => setMoreOpen((o) => !o)}
+            className={`inline-flex items-center gap-0.5 rounded px-2 py-1 text-2xs ${
+              isMoreTab ? "bg-elevated text-ink" : "text-mute hover:text-ink"
+            }`}
+          >
+            More
+            <ChevronDown className="h-3 w-3" strokeWidth={1.5} />
+          </button>
+          {moreOpen && (
+            <div className="absolute right-0 top-full z-30 mt-1 min-w-[7rem] rounded border border-line bg-elevated py-1 shadow-sm">
+              {MORE_TABS.map((t) => (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => {
+                    onTab(t.id);
+                    setMoreOpen(false);
+                  }}
+                  className={`block w-full px-3 py-1.5 text-left text-2xs ${
+                    tab === t.id
+                      ? "text-ink"
+                      : "text-mute hover:bg-panel hover:text-ink"
+                  }`}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
-      <div className="flex-1 min-h-0 overflow-y-auto p-3 scrollbar-thin flex flex-col">
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto p-3 scrollbar-thin">
         {tab === "findings" && (
-
-          <div className="space-y-3">
-            <RiskRadarChart riskScore={job.blast_radius.risk_score} />
-            <div className="space-y-2">
-              {job.findings.map((f) => (
+          <div className="space-y-2">
+            {job.findings.length === 0 ? (
+              <p className="text-2xs text-faint">No findings for this job.</p>
+            ) : (
+              job.findings.map((f) => (
                 <div
                   key={f.id}
-                  className="rounded-md border border-line bg-canvas p-3"
+                  className="rounded border border-line bg-canvas p-3"
                 >
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-xs font-medium text-ink">{f.type}</span>
                     <span className="text-2xs text-mute">{f.severity}</span>
                   </div>
-                  <p className="mt-1 text-xs text-mute">{f.rationale}</p>
-                  <p className="mt-2 font-mono text-2xs text-faint">{f.evidence}</p>
+                  <p className="mt-1 text-xs leading-relaxed text-mute">
+                    {f.rationale}
+                  </p>
+                  <p className="mt-2 font-mono text-2xs text-faint">
+                    {f.evidence}
+                  </p>
                 </div>
-              ))}
-            </div>
+              ))
+            )}
           </div>
         )}
 
@@ -140,8 +193,8 @@ export function InspectorDrawer({
             {!nodeBlocked && node && (
               <p className="text-2xs leading-relaxed text-faint">
                 {node.impacted
-                  ? "On the blast path, but not in the selective quarantine set (only gated entities are BLOCKED)."
-                  : "Selective halt: this fork is outside the quarantine set for the current findings."}
+                  ? "On the blast path, but not in the selective quarantine set."
+                  : "Selective halt: this fork is outside the quarantine set."}
               </p>
             )}
           </div>
@@ -153,13 +206,12 @@ export function InspectorDrawer({
 
         {tab === "fix" && (
           <div className="space-y-2">
-            <div className="rounded-md border border-line bg-canvas px-3 py-2">
-              <div className="font-mono text-[10px] uppercase tracking-widest text-faint">
-                Remediation artifact
+            <div className="rounded border border-line bg-canvas px-3 py-2">
+              <div className="text-2xs font-medium text-mute">
+                Remediation
               </div>
               <p className="mt-1 text-2xs leading-relaxed text-mute">
-                Suggested SQL/dbt fix for the findings (dry-run when no GitHub
-                token). Review the diff below.
+                Suggested fix for the findings (dry-run when no GitHub token).
               </p>
               {job.pr && (
                 <dl className="mt-2 space-y-1 font-mono text-2xs text-mute">
@@ -173,16 +225,10 @@ export function InspectorDrawer({
                       <dd className="mt-0.5 break-all text-ink">{job.pr.path}</dd>
                     </div>
                   )}
-                  {job.pr.diff_summary && (
-                    <div>
-                      <dt className="text-faint">summary</dt>
-                      <dd className="mt-0.5 text-ink">{job.pr.diff_summary}</dd>
-                    </div>
-                  )}
                 </dl>
               )}
             </div>
-            <pre className="overflow-x-auto rounded-md border border-line bg-canvas p-3 font-mono text-2xs leading-relaxed text-mute">
+            <pre className="overflow-x-auto rounded border border-line bg-canvas p-3 font-mono text-2xs leading-relaxed text-mute">
               {resolveFixDiff(job)}
             </pre>
           </div>
@@ -190,28 +236,31 @@ export function InspectorDrawer({
 
         {tab === "mbom" && (
           <div className="space-y-3">
-            <div className="rounded-md border border-line bg-canvas px-3 py-2">
-              <div className="font-mono text-[10px] uppercase tracking-widest text-faint">
-                Audit attestation (MBOM)
+            <div className="rounded border border-line bg-canvas px-3 py-2">
+              <div className="text-2xs font-medium text-mute">
+                Audit attestation
               </div>
               <p className="mt-1 text-2xs leading-relaxed text-mute">
-                Durable record of findings, risk, quarantine, and fix so the next
-                operator inherits this job. When DataHub mutations are live this
-                is published via{" "}
-                <span className="font-mono text-ink">save_document</span>; offline
-                demo shows the shipped example below.
+                Record of findings, risk, quarantine, and fix for this job.
+                Live path uses{" "}
+                <span className="font-mono text-ink">save_document</span> when
+                mutations are enabled.
               </p>
               {job.mbom?.document_urn && (
                 <p className="mt-2 font-mono text-2xs text-faint">
-                  doc · {job.mbom.document_urn}
-                </p>
-              )}
-              {job.mbom?.path && (
-                <p className="mt-0.5 font-mono text-2xs text-faint">
-                  path · {job.mbom.path}
+                  {job.mbom.document_urn}
                 </p>
               )}
             </div>
+            {/* Radar only under attestation, secondary */}
+            <details className="group rounded border border-line bg-canvas">
+              <summary className="cursor-pointer px-3 py-2 text-2xs text-mute hover:text-ink">
+                Risk radar
+              </summary>
+              <div className="border-t border-line p-2">
+                <RiskRadarChart riskScore={job.blast_radius.risk_score} />
+              </div>
+            </details>
             <article className="prose-ms">
               <ReactMarkdown remarkPlugins={[remarkGfm]}>
                 {resolveMbomMarkdown(job)}
@@ -223,12 +272,13 @@ export function InspectorDrawer({
         {tab === "rag" && <RagChat job={job} />}
 
         {tab === "raw" && (
-          <pre className="overflow-x-auto rounded-md border border-line bg-canvas p-3 font-mono text-2xs text-mute">
+          <pre className="overflow-x-auto rounded border border-line bg-canvas p-3 font-mono text-2xs text-mute">
             {JSON.stringify(job, null, 2)}
           </pre>
         )}
       </div>
 
+      {/* Sticky actions */}
       <div className="flex shrink-0 gap-2 border-t border-line p-3">
         <button
           type="button"
@@ -236,12 +286,12 @@ export function InspectorDrawer({
           disabled={Boolean(job.quarantine?.gateStatus === "BLOCKED")}
           title={
             job.quarantine?.gateStatus === "BLOCKED"
-              ? "Circuit already tripped for this job (gated entities BLOCKED)"
-              : "Trip advisory circuit breaker and block gated entities"
+              ? "Circuit already tripped for this job"
+              : "Trip advisory circuit breaker"
           }
-          className="flex-1 rounded-md border border-line2 bg-elevated py-2 text-2xs font-semibold text-ink disabled:cursor-not-allowed disabled:opacity-40 hover:enabled:border-bad/60 hover:enabled:text-bad transition-colors shadow-sm"
+          className="flex-1 rounded border border-line2 bg-elevated py-2 text-2xs font-medium text-ink transition-colors hover:enabled:border-bad/50 hover:enabled:text-bad disabled:cursor-not-allowed disabled:opacity-40"
         >
-          Trip circuit
+          Trip
         </button>
         <button
           type="button"
@@ -249,16 +299,14 @@ export function InspectorDrawer({
           disabled={!job.quarantine || gate === "LIFTED"}
           title={
             !job.quarantine || gate === "LIFTED"
-              ? "No active BLOCKED quarantine to lift"
-              : "Lift clears advisory quarantine and unblocks gated entities"
+              ? "No active quarantine to lift"
+              : "Lift advisory quarantine"
           }
-          className="flex-1 rounded-md border border-line py-2 text-2xs font-semibold text-mute disabled:cursor-not-allowed disabled:opacity-40 hover:enabled:border-good/60 hover:enabled:text-good transition-colors shadow-sm"
+          className="flex-1 rounded border border-line py-2 text-2xs font-medium text-mute transition-colors hover:enabled:border-good/50 hover:enabled:text-good disabled:cursor-not-allowed disabled:opacity-40"
         >
-          Lift quarantine
+          Lift
         </button>
       </div>
     </aside>
   );
 }
-
-

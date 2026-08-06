@@ -13,6 +13,11 @@ import { loadCommandJob, fetchHealth, createJob, liftQuarantineJob, tripJob } fr
 import type { AgentName, AgentStatus, JobArtifact, JobEvent, ScenarioId } from "./lib/types";
 import { AGENT_ACCENTS, DEFAULT_ROOT_URN, SCENARIOS } from "./lib/types";
 import { DEMO_JOB, ECOMMERCE_JOB, NYCTAXI_JOB } from "./lib/demoJob";
+import {
+  runKindFromMode,
+  type CatalogState,
+  type ConnectionState,
+} from "./lib/status";
 
 const AGENTS: AgentName[] = [
   "ContextSentinel",
@@ -79,13 +84,6 @@ function makeLog(
   return { ts: nowTs(), agent, kind, message, latency_ms, items_processed };
 }
 
-function modeLabel(mode?: string): string {
-  if (mode === "live_mcp") return "live";
-  if (mode === "demo_closed_loop") return "demo";
-  if (mode === "antigravity_closed_loop") return "closed loop";
-  return "job";
-}
-
 /** Group job events by first appearance of each swarm agent (pipeline order). */
 function eventsByAgent(events: JobEvent[]): Map<AgentName, JobEvent[]> {
   const map = new Map<AgentName, JobEvent[]>();
@@ -111,7 +109,8 @@ function sleep(ms: number): Promise<void> {
 export default function App() {
   const [job, setJob] = useState<JobArtifact | null>(null);
   const [source, setSource] = useState<"api" | "demo">("demo");
-  const [health, setHealth] = useState<string>("checking…");
+  const [connection, setConnection] = useState<ConnectionState>("checking");
+  const [catalog, setCatalog] = useState<CatalogState>("unknown");
   const [selectedUrn, setSelectedUrn] = useState<string | null>(null);
   const [tab, setTab] = useState<InspectorTab>("findings");
   const [scanning, setScanning] = useState(false);
@@ -157,20 +156,21 @@ export default function App() {
     void (async () => {
       setBootStatus("Checking API…");
       const h = await fetchHealth();
-      setHealth(
-        h?.status === "ok"
-          ? `API · closed loop${
-              h.datahub_reachable === true
-                ? " · GMS live"
-                : h.datahub_reachable === false
-                  ? " · GMS offline"
-                  : ""
-            }`
-          : "Offline demo mode",
-      );
-      setBootStatus(
-        h?.status === "ok" ? "Loading latest job…" : "Loading offline demo…",
-      );
+      if (h?.status === "ok") {
+        setConnection("live");
+        setCatalog(
+          h.datahub_reachable === true
+            ? "on"
+            : h.datahub_reachable === false
+              ? "off"
+              : "unknown",
+        );
+        setBootStatus("Loading latest job…");
+      } else {
+        setConnection("offline");
+        setCatalog("unknown");
+        setBootStatus("Loading sample data…");
+      }
       const loaded = await loadCommandJob();
       applyJobArtifact(loaded.job, loaded.source);
       seedLogsFromJob(loaded.job);
@@ -360,9 +360,7 @@ export default function App() {
           ),
         );
         applyJobArtifact(created, "api");
-        setHealth((prev) =>
-          prev.startsWith("Offline") ? "API · closed loop" : prev,
-        );
+        setConnection("live");
         // Reset soft-progress; stream real events stage-by-stage
         setStatuses(idleStatuses());
         await streamJobIntoTerminal(created);
@@ -379,7 +377,7 @@ export default function App() {
           makeLog(
             "ContextSentinel",
             "STATUS",
-            `API unavailable · replaying ${activeScenario} demo artifact`,
+            `API unavailable · replaying ${activeScenario} sample job`,
           ),
         );
         applyJobArtifact(demo, "demo");
@@ -545,9 +543,8 @@ export default function App() {
   return (
     <div className="flex h-full flex-col bg-canvas text-ink">
       <TopBar
-        connection={scanning ? "Scanning…" : health}
-        source={source}
-        risk={job.blast_radius.risk_score}
+        connection={connection}
+        catalog={catalog}
         scanning={scanning}
         activeScenario={activeScenario}
         onSelectScenario={onSelectScenario}
@@ -558,7 +555,7 @@ export default function App() {
           agents={agents}
           logs={logs}
           jobId={job.job_id}
-          modeLabel={modeLabel(job.execution_mode)}
+          runKind={runKindFromMode(job.execution_mode, source)}
           scanning={scanning}
           metrics={{
             risk: job.blast_radius.risk_score,

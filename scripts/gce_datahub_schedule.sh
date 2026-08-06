@@ -112,18 +112,53 @@ cmd_stop_now() {
   cmd_status
 }
 
+cmd_repoint_cloudrun() {
+  local ip="$1"
+  local service="${CLOUD_RUN_SERVICE:-midsphere-api}"
+  local run_region="${CLOUD_RUN_REGION:-us-central1}"
+  [[ -n "$ip" ]] || die "no external IP to re-point Cloud Run"
+  echo "Re-pointing Cloud Run ${service} → http://${ip}:8080 ..."
+  gcloud run services update "$service" \
+    --project="$PROJECT" \
+    --region="$run_region" \
+    --update-env-vars="DATAHUB_GMS_URL=http://${ip}:8080,TOOLS_IS_MUTATION_ENABLED=true,USE_OFFICIAL_MCP=true,ANTIGRAVITY_ATTACH_MCP=true" \
+    --quiet
+  echo "Cloud Run env updated. Frontend chip uses GET /v1/health → datahub_reachable."
+}
+
+cmd_wait_gms() {
+  local ip="$1"
+  local max="${2:-40}"
+  local i code
+  echo "Waiting for DataHub GMS at http://${ip}:8080/health (cold start can take 5–15 min)..."
+  for i in $(seq 1 "$max"); do
+    code="$(curl -sS -m 5 -o /dev/null -w '%{http_code}' "http://${ip}:8080/health" 2>/dev/null || echo 000)"
+    echo "  [$i/$max] http=$code"
+    if [ "$code" = "200" ]; then
+      echo "GMS is up."
+      return 0
+    fi
+    sleep 15
+  done
+  echo "WARN: GMS not healthy yet. Check: gcloud compute ssh $INSTANCE --zone=$ZONE -- 'sudo docker ps'"
+  return 1
+}
+
 cmd_start_now() {
   echo "Starting $INSTANCE now ..."
   gcloud compute instances start "$INSTANCE" --project="$PROJECT" --zone="$ZONE" --quiet
-  # Wait briefly for IP
-  sleep 5
+  sleep 8
   local ip
   ip="$(gcloud compute instances describe "$INSTANCE" --project="$PROJECT" --zone="$ZONE" \
     --format='get(networkInterfaces[0].accessConfigs[0].natIP)')"
-  echo "External IP: $ip"
-  echo "Re-point Cloud Run (if IP changed):"
-  echo "  gcloud run services update midsphere-api --region=us-central1 \\"
-  echo "    --update-env-vars=DATAHUB_GMS_URL=http://${ip}:8080"
+  echo "External IP: $ip  (IP often changes after stop/start)"
+  # Always re-point Cloud Run — IP change + prior deploys may reset to localhost
+  cmd_repoint_cloudrun "$ip"
+  cmd_wait_gms "$ip" 40 || true
+  echo
+  echo "Verify API:"
+  echo "  curl -sS https://midsphere-api-1053689941073.us-central1.run.app/v1/health | jq .datahub_reachable"
+  echo "Then hard-refresh https://midsphere.vercel.app (chip should say GMS live)."
   cmd_status
 }
 

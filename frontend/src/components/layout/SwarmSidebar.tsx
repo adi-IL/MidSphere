@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { AgentName, AgentStatus, JobEvent } from "../../lib/types";
+import { runKindTone, type RunKind } from "../../lib/status";
+import { ChevronDown, ChevronRight, Trash2 } from "lucide-react";
 
 interface AgentCardModel {
   name: AgentName;
@@ -8,7 +10,14 @@ interface AgentCardModel {
   short: string;
 }
 
-export type InspectorTab = "findings" | "gate" | "aspects" | "fix" | "mbom" | "rag" | "raw";
+export type InspectorTab =
+  | "findings"
+  | "gate"
+  | "aspects"
+  | "fix"
+  | "mbom"
+  | "rag"
+  | "raw";
 
 export interface JobMetrics {
   risk: number;
@@ -20,25 +29,23 @@ export interface JobMetrics {
 
 interface Props {
   agents: AgentCardModel[];
-  /** Newest-first terminal stream (Sentinel-style). */
   logs: JobEvent[];
   jobId: string;
-  modeLabel?: string;
+  runKind?: RunKind;
   scanning?: boolean;
   metrics?: JobMetrics;
   onSelectAgent?: (name: AgentName | "ALL") => void;
   selectedAgent?: AgentName | "ALL";
   onClearLogs?: () => void;
-  /** Open inspector tab (e.g. from MBOM/PR log rows). */
   onOpenTab?: (tab: InspectorTab) => void;
 }
 
 const AGENT_SHORT: Record<AgentName, string> = {
-  ContextSentinel: "Audit quality signals",
-  CascadeAnalyzer: "Blast radius + risk",
-  CircuitBreaker: "Advisory quarantine",
-  FixArchitect: "Remediation artifact",
-  MBOMEngine: "Attestation / MBOM",
+  ContextSentinel: "Audit",
+  CascadeAnalyzer: "Blast radius",
+  CircuitBreaker: "Quarantine",
+  FixArchitect: "Remediation",
+  MBOMEngine: "Attestation",
 };
 
 function isSystemNoise(e: JobEvent): boolean {
@@ -58,7 +65,8 @@ function displayMessage(e: JobEvent): string {
   m = m.replace(/\s*\(antigravity custom tool\)/gi, "");
   m = m.replace(/^antigravity tool_call\s+/i, "tool ");
   m = m.replace(/^antigravity tool\s+/i, "");
-  m = m.replace(/\s*\(demo_closed_loop; no live MCP call\)/gi, " · sim");
+  m = m.replace(/\s*\(demo_closed_loop; no live MCP call\)/gi, "");
+  m = m.replace(/^sim\s+/i, "Simulated ");
   return m;
 }
 
@@ -74,35 +82,15 @@ function parseArtifactRow(e: JobEvent): {
   if (
     lower.includes("mbom ready") ||
     lower.includes("open inspector → mbom") ||
-    lower.includes("open inspector -> mbom")
-  ) {
-    return {
-      headline: "MBOM ready — audit attestation for this job",
-      detail: "Open Inspector → MBOM to read findings, risk, quarantine, and lift criteria.",
-      tab: "mbom",
-      cta: "Open MBOM review →",
-    };
-  }
-  if (
+    lower.includes("open inspector -> mbom") ||
     e.kind === "MBOM" ||
-    lower.includes("mbom artifact") ||
     (lower.includes("examples/mboms/") && lower.includes("urn="))
   ) {
-    const pathMatch = m.match(/path[=:]?\s*(\S+\.md)/i);
-    const urnMatch = m.match(/urn=(urn:li:document:\S+)/i);
-    const path = pathMatch?.[1];
-    const urn = urnMatch?.[1];
     return {
-      headline: "MBOM ready — audit attestation for this job",
-      detail: [
-        path ? `example file: ${path}` : null,
-        urn ? `doc id: ${urn}` : null,
-        "offline demo · open Inspector → MBOM to review",
-      ]
-        .filter(Boolean)
-        .join(" · "),
+      headline: "MBOM ready",
+      detail: "Open Attestation to review findings and lift criteria.",
       tab: "mbom",
-      cta: "Open MBOM review →",
+      cta: "Open attestation",
     };
   }
 
@@ -111,18 +99,11 @@ function parseArtifactRow(e: JobEvent): {
     lower.includes("dry_run path=") ||
     lower.includes("examples/prs/")
   ) {
-    const pathMatch = m.match(/path[=:]?\s*(\S+\.diff)/i);
-    const path = pathMatch?.[1];
     return {
-      headline: "Fix artifact ready — remediation diff (dry-run)",
-      detail: [
-        path ? `example file: ${path}` : null,
-        "open Inspector → Fix to review",
-      ]
-        .filter(Boolean)
-        .join(" · "),
+      headline: "Fix artifact ready",
+      detail: "Dry-run remediation available in Fix.",
       tab: "fix",
-      cta: "Open Fix review →",
+      cta: "Open fix",
     };
   }
 
@@ -143,13 +124,6 @@ function formatTs(ts: string): string {
   }
 }
 
-function agentBadge(agent: string): string {
-  return String(agent)
-    .replace(/([a-z])([A-Z])/g, "$1 $2")
-    .split(" ")[0]
-    .toUpperCase();
-}
-
 function statusLabel(s: AgentStatus): string {
   switch (s) {
     case "RUNNING":
@@ -165,17 +139,18 @@ function statusLabel(s: AgentStatus): string {
   }
 }
 
-function modeTone(label: string): string {
-  if (label === "live") return "text-good border-good/30";
-  if (label === "demo") return "text-warn border-warn/30";
-  return "text-mute border-line2";
+function gateTone(gate: string): string {
+  if (gate === "BLOCKED") return "text-bad";
+  if (gate === "LIFTED") return "text-warn";
+  if (gate === "OPEN") return "text-good";
+  return "text-mute";
 }
 
 export function SwarmSidebar({
   agents,
   logs,
   jobId,
-  modeLabel = "closed loop",
+  runKind = "Job",
   scanning = false,
   metrics,
   onSelectAgent,
@@ -185,10 +160,16 @@ export function SwarmSidebar({
 }: Props) {
   const streamRef = useRef<HTMLDivElement>(null);
   const [localAgent, setLocalAgent] = useState<string>(selectedAgent);
+  const [telemetryOpen, setTelemetryOpen] = useState(false);
 
   useEffect(() => {
     setLocalAgent(selectedAgent);
   }, [selectedAgent]);
+
+  // Auto-open telemetry while a scan is running
+  useEffect(() => {
+    if (scanning) setTelemetryOpen(true);
+  }, [scanning]);
 
   const filteredLogs = useMemo(() => {
     return logs.filter((log) => {
@@ -198,13 +179,10 @@ export function SwarmSidebar({
     });
   }, [logs, localAgent]);
 
-  // Smooth scroll container to top smoothly on new logs
   useEffect(() => {
     const el = streamRef.current;
-    if (!el) return;
-    if (scanning) {
-      el.scrollTo({ top: 0, behavior: "smooth" });
-    }
+    if (!el || !scanning) return;
+    el.scrollTo({ top: 0, behavior: "smooth" });
   }, [filteredLogs.length, scanning]);
 
   const setFilter = (v: string) => {
@@ -212,84 +190,62 @@ export function SwarmSidebar({
     onSelectAgent?.(v as AgentName | "ALL");
   };
 
-  const activeAgent = agents.find((a) => a.status === "RUNNING")?.name;
+  const shortId =
+    jobId.length > 18 ? `${jobId.slice(0, 8)}…${jobId.slice(-6)}` : jobId;
 
   return (
-    <aside className="flex w-[300px] shrink-0 flex-col border-r border-line bg-panel">
+    <aside className="flex w-[240px] shrink-0 flex-col border-r border-line bg-panel">
       {/* Header */}
       <div className="shrink-0 border-b border-line px-3 py-3">
         <div className="flex items-center justify-between gap-2">
-          <div className="font-mono text-[10px] uppercase tracking-widest text-faint">
-            Swarm Orchestrator
-          </div>
+          <span className="text-2xs font-medium text-mute">Pipeline</span>
           <span
-            className={`rounded border px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wide ${modeTone(modeLabel)}`}
+            className={`rounded border px-1.5 py-0.5 text-[10px] ${runKindTone(runKind)}`}
           >
-            {modeLabel}
+            {runKind}
           </span>
         </div>
-        <div className="mt-1 truncate font-mono text-2xs text-mute" title={jobId}>
-          {jobId}
+        <div
+          className="mt-1 truncate font-mono text-2xs text-faint"
+          title={jobId}
+        >
+          {shortId}
         </div>
       </div>
 
-      {/* Job metrics 2×2 */}
+      {/* Metrics strip — single row */}
       {metrics && (
-        <div className="shrink-0 grid grid-cols-2 gap-1.5 border-b border-line p-2">
-          {(
-            [
-              {
-                label: "risk",
-                value: String(metrics.risk),
-                tone:
-                  metrics.risk >= 60
-                    ? "text-bad"
-                    : metrics.risk >= 40
-                      ? "text-warn"
-                      : "text-ink",
-              },
-              {
-                label: "findings",
-                value: String(metrics.findings),
-                tone: "text-ink",
-              },
-              {
-                label: "impacted",
-                value: `${metrics.impacted}/${metrics.total}`,
-                tone: metrics.impacted > 0 ? "text-bad" : "text-good",
-              },
-              {
-                label: "gate",
-                value: metrics.gate,
-                tone:
-                  metrics.gate === "BLOCKED"
-                    ? "text-bad"
-                    : metrics.gate === "LIFTED"
-                      ? "text-warn"
-                      : "text-good",
-              },
-            ] as const
-          ).map((cell) => (
-            <div
-              key={cell.label}
-              className="rounded-md border border-line bg-canvas px-2 py-1.5"
-            >
-              <div className="font-mono text-[9px] uppercase tracking-widest text-faint">
-                {cell.label}
-              </div>
-              <div
-                className={`mt-0.5 font-mono text-sm font-semibold tabular-nums ${cell.tone}`}
-              >
-                {cell.value}
-              </div>
-            </div>
-          ))}
+        <div className="flex shrink-0 items-center gap-3 border-b border-line px-3 py-2 font-mono text-2xs tabular-nums">
+          <span
+            className={
+              metrics.risk >= 60
+                ? "text-bad"
+                : metrics.risk >= 40
+                  ? "text-warn"
+                  : "text-ink"
+            }
+            title="Risk"
+          >
+            {metrics.risk}
+          </span>
+          <span className="text-line2">·</span>
+          <span className="text-mute" title="Findings">
+            {metrics.findings}f
+          </span>
+          <span className="text-line2">·</span>
+          <span className="text-mute" title="Impacted">
+            {metrics.impacted}/{metrics.total}
+          </span>
+          <span className="text-line2">·</span>
+          <span className={gateTone(metrics.gate)} title="Gate">
+            {metrics.gate}
+          </span>
         </div>
       )}
 
-      {/* Stage cards */}
-      <div className="shrink-0 space-y-1.5 border-b border-line p-2">
-        {agents.map((a) => {
+      {/* Pipeline stepper */}
+      <div className="shrink-0 border-b border-line py-1">
+        {agents.map((a, idx) => {
           const active = a.status === "RUNNING";
           const done = a.status === "DONE";
           const err = a.status === "ERROR";
@@ -307,63 +263,43 @@ export function SwarmSidebar({
               key={a.name}
               type="button"
               onClick={() => setFilter(selected ? "ALL" : a.name)}
-              className={`relative flex w-full items-center gap-2 rounded-md border px-2.5 py-2 text-left transition-all duration-200 overflow-hidden ${
-                active
-                  ? "border-accent/80 bg-elevated shadow-md shadow-accent/10"
-                  : selected
-                    ? "border-line2 bg-elevated"
-                    : "border-line bg-canvas hover:border-line2"
+              className={`flex w-full items-center gap-2.5 px-3 py-1.5 text-left transition-colors ${
+                selected ? "bg-elevated" : "hover:bg-elevated/60"
               }`}
             >
-              {/* Active progress glowing bar */}
-              {active && (
-                <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-accent via-good to-accent animate-pulse" />
-              )}
-
-              <div className="relative flex h-2.5 w-2.5 shrink-0 items-center justify-center">
-                {active && (
-                  <span className="absolute inset-0 rounded-full bg-accent/40 animate-ping" />
+              <div className="relative flex w-3 shrink-0 flex-col items-center">
+                {idx < agents.length - 1 && (
+                  <span
+                    className="absolute top-3 h-[calc(100%+4px)] w-px bg-line"
+                    aria-hidden
+                  />
                 )}
                 <span
-                  className={`relative h-2 w-2 rounded-full transition-all ${
+                  className={`relative z-[1] h-1.5 w-1.5 rounded-full ${
                     active
-                      ? "bg-accent scale-110 shadow-sm shadow-accent"
+                      ? "bg-accent agent-pulse"
                       : done
                         ? "bg-good"
                         : err
                           ? "bg-bad"
-                          : "bg-faint opacity-40"
+                          : "bg-line2"
                   }`}
                 />
               </div>
-
               <div className="min-w-0 flex-1">
-                <div className="flex items-center justify-between gap-2">
-                  <span className={`truncate text-xs font-medium ${active ? "text-ink font-semibold" : "text-ink"}`}>
+                <div className="flex items-center justify-between gap-1">
+                  <span
+                    className={`truncate text-2xs ${
+                      active || selected ? "text-ink" : "text-mute"
+                    }`}
+                  >
                     {a.name}
                   </span>
-                  <div className="flex items-center gap-1.5">
-                    {metricStr && (
-                      <span className="font-mono text-[9px] text-faint">
-                        {metricStr}
-                      </span>
-                    )}
-                    <span
-                      className={`shrink-0 font-mono text-[10px] uppercase tracking-wide ${
-                        active
-                          ? "text-accent font-bold animate-pulse"
-                          : done
-                            ? "text-mute"
-                            : err
-                              ? "text-bad"
-                              : "text-faint"
-                      }`}
-                    >
-                      {statusLabel(a.status)}
-                    </span>
-                  </div>
+                  <span className="shrink-0 font-mono text-[10px] text-faint">
+                    {metricStr ?? statusLabel(a.status)}
+                  </span>
                 </div>
-                <div className="truncate font-mono text-[10px] text-faint">
+                <div className="truncate text-[10px] text-faint">
                   {AGENT_SHORT[a.name] ?? a.short}
                 </div>
               </div>
@@ -372,122 +308,113 @@ export function SwarmSidebar({
         })}
       </div>
 
-      {/* Terminal Log */}
-      <div className="mx-2 mb-2 mt-2 flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-line bg-canvas">
-        <div className="flex shrink-0 items-center justify-between gap-2 border-b border-line bg-elevated px-3 py-2">
-          <div className="flex items-center gap-2">
-            <div
-              className={`h-2 w-2 rounded-full ${
-                scanning ? "bg-good animate-pulse" : "bg-good/80"
-              }`}
-            />
-            <span className="font-mono text-[10px] uppercase tracking-wider text-mute">
-              Terminal Log
-            </span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <select
-              value={localAgent}
-              onChange={(e) => setFilter(e.target.value)}
-              className="rounded border border-line bg-canvas px-1.5 py-0.5 font-mono text-[10px] text-mute focus:border-ink focus:outline-none"
-            >
-              <option value="ALL">ALL STAGES</option>
-              {agents.map((a) => (
-                <option key={a.name} value={a.name}>
-                  {agentBadge(a.name)}
-                </option>
-              ))}
-            </select>
-            {onClearLogs && (
-              <button
-                type="button"
-                onClick={onClearLogs}
-                title="Clear Logs"
-                className="rounded p-1 text-mute transition-colors hover:bg-canvas hover:text-ink"
-              >
-                <svg
-                  className="h-3 w-3"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                  />
-                </svg>
-              </button>
-            )}
-          </div>
-        </div>
-
-        <div
-          ref={streamRef}
-          className="custom-scrollbar min-h-0 flex-1 space-y-2 overflow-y-auto p-2.5 font-mono text-[11px] scroll-smooth"
+      {/* Telemetry disclosure */}
+      <div className="flex min-h-0 flex-1 flex-col">
+        <button
+          type="button"
+          onClick={() => setTelemetryOpen((o) => !o)}
+          className="flex shrink-0 items-center justify-between gap-2 border-b border-line px-3 py-2 text-2xs text-mute hover:text-ink"
         >
-          {filteredLogs.length === 0 ? (
-            <div className="py-4 text-center text-[10px] italic text-faint">
-              {logs.length === 0
-                ? "> System initialized. Ready."
-                : "> No logs for selected agent."}
-            </div>
-          ) : (
-            filteredLogs.map((log, idx) => {
-              const artifact = parseArtifactRow(log);
-              const isActiveAgentLog = activeAgent && log.agent === activeAgent;
+          <span className="inline-flex items-center gap-1.5">
+            {telemetryOpen ? (
+              <ChevronDown className="h-3 w-3" strokeWidth={1.5} />
+            ) : (
+              <ChevronRight className="h-3 w-3" strokeWidth={1.5} />
+            )}
+            Telemetry
+            {scanning && (
+              <span className="h-1.5 w-1.5 rounded-full bg-good agent-pulse" />
+            )}
+          </span>
+          <span className="font-mono text-[10px] text-faint">
+            {filteredLogs.length}
+          </span>
+        </button>
 
-              return (
-                <div
-                  key={`${log.ts}-${log.kind}-${idx}-${log.message.slice(0, 24)}`}
-                  className={`border-l-2 py-1 pl-2 transition-all ${
-                    isActiveAgentLog
-                      ? "border-accent bg-accent/5"
-                      : artifact
-                        ? "border-good/60 bg-good/5 hover:border-good"
-                        : "border-line/60 hover:border-ink/40"
-                  }`}
+        {telemetryOpen && (
+          <div className="flex min-h-0 flex-1 flex-col">
+            <div className="flex shrink-0 items-center justify-between gap-1 border-b border-line px-2 py-1">
+              <select
+                value={localAgent}
+                onChange={(e) => setFilter(e.target.value)}
+                className="min-w-0 flex-1 rounded border border-line bg-canvas px-1.5 py-0.5 text-[10px] text-mute focus:border-line2 focus:outline-none"
+              >
+                <option value="ALL">All stages</option>
+                {agents.map((a) => (
+                  <option key={a.name} value={a.name}>
+                    {a.name}
+                  </option>
+                ))}
+              </select>
+              {onClearLogs && (
+                <button
+                  type="button"
+                  onClick={onClearLogs}
+                  title="Clear logs"
+                  className="rounded p-1 text-faint hover:text-ink"
                 >
-                  <div className="mb-0.5 flex items-center justify-between gap-2 text-[9px] text-faint">
-                    <span className="tabular-nums">{formatTs(log.ts)}</span>
-                    <span className="rounded border border-line bg-elevated px-1.5 py-px text-[8px] font-bold uppercase tracking-wide text-mute">
-                      {agentBadge(String(log.agent))}
-                    </span>
-                  </div>
-                  {artifact ? (
-                    <div className="space-y-1">
-                      <div className="break-words leading-snug font-semibold text-good">
-                        {artifact.headline}
+                  <Trash2 className="h-3 w-3" strokeWidth={1.5} />
+                </button>
+              )}
+            </div>
+
+            <div
+              ref={streamRef}
+              className="custom-scrollbar min-h-0 flex-1 space-y-1.5 overflow-y-auto p-2 font-mono text-[11px]"
+            >
+              {filteredLogs.length === 0 ? (
+                <div className="py-6 text-center text-[10px] text-faint">
+                  {logs.length === 0 ? "No events yet." : "No events for filter."}
+                </div>
+              ) : (
+                filteredLogs.map((log, idx) => {
+                  const artifact = parseArtifactRow(log);
+                  return (
+                    <div
+                      key={`${log.ts}-${log.kind}-${idx}-${log.message.slice(0, 24)}`}
+                      className="border-l border-line py-0.5 pl-2"
+                    >
+                      <div className="mb-0.5 flex items-center justify-between gap-2 text-[10px] text-faint">
+                        <span className="tabular-nums">{formatTs(log.ts)}</span>
+                        <span className="truncate text-mute">
+                          {String(log.agent).replace(/([a-z])([A-Z])/g, "$1 $2")}
+                        </span>
                       </div>
-                      {artifact.detail && (
-                        <div className="break-all text-[10px] leading-snug text-faint">
-                          {artifact.detail}
+                      {artifact ? (
+                        <div className="space-y-0.5">
+                          <div className="leading-snug text-ink">
+                            {artifact.headline}
+                          </div>
+                          {artifact.detail && (
+                            <div className="text-[10px] leading-snug text-faint">
+                              {artifact.detail}
+                            </div>
+                          )}
+                          {artifact.tab && onOpenTab && (
+                            <button
+                              type="button"
+                              onClick={() => onOpenTab(artifact.tab!)}
+                              className="text-left text-[10px] text-accent hover:underline"
+                            >
+                              {artifact.cta ?? "Open"}
+                            </button>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="break-words leading-snug text-mute">
+                          {log.kind !== "STATUS" && (
+                            <span className="mr-1 text-faint">{log.kind}</span>
+                          )}
+                          {displayMessage(log)}
                         </div>
                       )}
-                      {artifact.tab && onOpenTab && (
-                        <button
-                          type="button"
-                          onClick={() => onOpenTab(artifact.tab!)}
-                          className="text-left text-[10px] font-semibold text-accent hover:underline inline-flex items-center gap-1"
-                        >
-                          <span>{artifact.cta ?? "Open in Inspector →"}</span>
-                        </button>
-                      )}
                     </div>
-                  ) : (
-                    <div className="break-words leading-snug text-ink/90">
-                      {log.kind !== "STATUS" && (
-                        <span className="mr-1 text-faint font-semibold">{log.kind}</span>
-                      )}
-                      {displayMessage(log)}
-                    </div>
-                  )}
-                </div>
-              );
-            })
-          )}
-        </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </aside>
   );

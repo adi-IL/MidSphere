@@ -2,7 +2,6 @@ import { useCallback, useMemo, useState } from "react";
 import ReactFlow, {
   Background,
   Controls,
-  MiniMap,
   type Edge,
   type Node,
 } from "reactflow";
@@ -24,45 +23,36 @@ interface Props {
 const nodeTypes = { dataset: CustomNode };
 const edgeTypes = { custom: CustomEdge };
 
-export function LineageCanvas({ nodes, selectedUrn, onSelect, activeScenarioLabel = "Pipeline" }: Props) {
-  const [timeStep, setTimeStep] = useState<number>(4); // Default to Step 4 (LIVE / Latest)
+export function LineageCanvas({
+  nodes,
+  selectedUrn,
+  onSelect,
+  activeScenarioLabel = "Pipeline",
+}: Props) {
+  const [timeStep, setTimeStep] = useState<number>(4);
+  const [showTimeTravel, setShowTimeTravel] = useState(false);
 
-  // Compute time-travel filtered node state
   const activeNodes = useMemo(() => {
     return nodes.map((n) => {
       let nodeImpacted = n.impacted;
-
-      // Time travel masking
-      if (timeStep === 0) {
-        nodeImpacted = false; // Baseline
-      } else if (timeStep === 1) {
-        nodeImpacted = n.hop === 0 && n.impacted; // Source only
-      } else if (timeStep === 2) {
-        nodeImpacted = (n.hop === 0 || n.hop === 1) && n.impacted; // Up to Hop 1
-      }
-
-      return {
-        ...n,
-        impacted: nodeImpacted,
-      };
+      if (timeStep === 0) nodeImpacted = false;
+      else if (timeStep === 1) nodeImpacted = n.hop === 0 && n.impacted;
+      else if (timeStep === 2)
+        nodeImpacted = (n.hop === 0 || n.hop === 1) && n.impacted;
+      return { ...n, impacted: nodeImpacted };
     });
   }, [nodes, timeStep]);
 
-  // Compute Focus Mode connected set
   const focusConnectedUrns = useMemo(() => {
     if (!selectedUrn) return null;
     const connected = new Set<string>([selectedUrn]);
-
-    // Find direct parent/child connections
+    const selectedHop = nodes.find((x) => x.urn === selectedUrn)?.hop ?? 0;
     activeNodes.forEach((n) => {
-      if (Math.abs(n.hop - (nodes.find((x) => x.urn === selectedUrn)?.hop ?? 0)) <= 1) {
-        connected.add(n.urn);
-      }
+      if (Math.abs(n.hop - selectedHop) <= 1) connected.add(n.urn);
     });
     return connected;
   }, [selectedUrn, activeNodes, nodes]);
 
-  // Generate Flow Nodes with generous horizontal (380px) and vertical (220px) spacing
   const flowNodes: Node<NodeDataModel>[] = useMemo(() => {
     const byHop = new Map<number, BlastNode[]>();
     for (const n of activeNodes) {
@@ -74,14 +64,12 @@ export function LineageCanvas({ nodes, selectedUrn, onSelect, activeScenarioLabe
     const result: Node<NodeDataModel>[] = [];
     for (const [hop, list] of [...byHop.entries()].sort((a, b) => a[0] - b[0])) {
       list.forEach((n, i) => {
-        const isDimmed = focusConnectedUrns !== null && !focusConnectedUrns.has(n.urn);
-
+        const isDimmed =
+          focusConnectedUrns !== null && !focusConnectedUrns.has(n.urn);
         result.push({
           id: n.urn,
           type: "dataset",
-          // X gap: 380px gives generous 145px space for edge labels
-          // Y gap: 220px gives 50px vertical clearance between cards
-          position: { x: hop * 380 + 80, y: i * 220 + 80 },
+          position: { x: hop * 320 + 60, y: i * 160 + 60 },
           data: {
             label: n.name,
             impacted: n.impacted,
@@ -89,12 +77,6 @@ export function LineageCanvas({ nodes, selectedUrn, onSelect, activeScenarioLabe
             urn: n.urn,
             reason: n.reason,
             dimmed: isDimmed,
-            // Illustrative stage chrome only — not live GMS metrics
-            rows: n.hop === 0 ? "source" : n.hop === 1 ? "staging" : "mart",
-            latency: n.impacted ? "on blast path" : "open fork",
-            riskScore: n.impacted ? (n.hop === 0 ? 70 : 55) : 0,
-            owner: n.hop === 0 ? "Ingestion" : n.hop === 1 ? "Transform" : "Analytics",
-            downstreamCount: n.hop === 0 ? 3 : n.hop === 1 ? 2 : 1,
           },
           selected: n.urn === selectedUrn,
         });
@@ -103,11 +85,9 @@ export function LineageCanvas({ nodes, selectedUrn, onSelect, activeScenarioLabe
     return result;
   }, [activeNodes, selectedUrn, focusConnectedUrns]);
 
-  // Generate Smoothstep Custom Edges
   const edges: Edge[] = useMemo(() => {
     const sorted = [...activeNodes].sort((a, b) => a.hop - b.hop);
     const edgesOut: Edge[] = [];
-
     for (let i = 0; i < sorted.length; i++) {
       for (let j = 0; j < sorted.length; j++) {
         if (sorted[j].hop === sorted[i].hop + 1) {
@@ -127,8 +107,6 @@ export function LineageCanvas({ nodes, selectedUrn, onSelect, activeScenarioLabe
               data: {
                 hot: isHot,
                 label: isHot ? hotLabel : "Open fork",
-                volume: parent.hop === 0 ? "hop 0→1" : "hop 1→2",
-                piiCount: isHot && hotLabel.includes("PII") ? 1 : 0,
               },
             });
           }
@@ -144,20 +122,19 @@ export function LineageCanvas({ nodes, selectedUrn, onSelect, activeScenarioLabe
   );
 
   return (
-    <div className="h-full w-full bg-canvas relative overflow-hidden select-none">
-      {/* Top Header Controls Overlay */}
-      <div className="pointer-events-none absolute left-4 top-4 z-20 flex items-center gap-3">
-        <div className="rounded-xl border border-line bg-panel/90 px-3.5 py-2 font-mono text-[10px] uppercase tracking-wide text-mute backdrop-blur-md shadow-2xl flex items-center gap-2.5">
-          <span className="font-bold text-ink">{activeScenarioLabel} Lineage</span>
-          <span className="text-line2">|</span>
-          <span className="inline-flex items-center gap-1.5 text-good font-semibold">
-            <span className="h-2 w-2 rounded-full bg-good shadow-sm shadow-good" />
-            open
+    <div className="relative h-full w-full select-none overflow-hidden bg-canvas">
+      <div className="pointer-events-none absolute left-3 top-3 z-20 flex items-center gap-2">
+        <div className="pointer-events-auto flex items-center gap-2 rounded border border-line bg-panel px-2.5 py-1.5 text-2xs text-mute">
+          <span className="font-medium text-ink">{activeScenarioLabel}</span>
+          <span className="text-line2">·</span>
+          <span className="inline-flex items-center gap-1">
+            <span className="h-1.5 w-1.5 rounded-full bg-line2" />
+            Open
           </span>
-          <span className="text-line2">|</span>
-          <span className="inline-flex items-center gap-1.5 text-bad font-semibold">
-            <span className="h-2 w-2 rounded-full bg-bad animate-ping" />
-            quarantined
+          <span className="text-line2">·</span>
+          <span className="inline-flex items-center gap-1">
+            <span className="h-1.5 w-1.5 rounded-full bg-bad" />
+            Impacted
           </span>
         </div>
 
@@ -165,14 +142,25 @@ export function LineageCanvas({ nodes, selectedUrn, onSelect, activeScenarioLabe
           <button
             type="button"
             onClick={() => onSelect("")}
-            className="pointer-events-auto rounded-xl border border-line bg-panel/90 px-3 py-2 font-mono text-[10px] uppercase tracking-wide text-mute hover:text-ink hover:border-faint backdrop-blur-md transition-colors shadow-2xl"
+            className="pointer-events-auto rounded border border-line bg-panel px-2.5 py-1.5 text-2xs text-mute hover:text-ink"
           >
-            Reset Focus Mode
+            Clear focus
           </button>
         )}
+
+        <button
+          type="button"
+          onClick={() => setShowTimeTravel((v) => !v)}
+          className={`pointer-events-auto rounded border px-2.5 py-1.5 text-2xs ${
+            showTimeTravel
+              ? "border-line2 bg-elevated text-ink"
+              : "border-line bg-panel text-mute hover:text-ink"
+          }`}
+        >
+          Timeline
+        </button>
       </div>
 
-      {/* ReactFlow Canvas */}
       <ReactFlow
         nodes={flowNodes}
         edges={edges}
@@ -180,30 +168,26 @@ export function LineageCanvas({ nodes, selectedUrn, onSelect, activeScenarioLabe
         edgeTypes={edgeTypes}
         onNodeClick={onNodeClick}
         fitView
-        fitViewOptions={{ padding: 0.25 }}
+        fitViewOptions={{ padding: 0.28 }}
         proOptions={{ hideAttribution: true }}
         minZoom={0.3}
         maxZoom={1.6}
         defaultEdgeOptions={{ type: "custom" }}
       >
-        <Background color="#1c1c1c" gap={28} size={1} />
-        <Controls showInteractive={false} className="!bg-panel !border-line !shadow-2xl overflow-hidden" />
-        <MiniMap
-          nodeColor={(node) => {
-            const d = node.data as NodeDataModel;
-            return d?.impacted ? "#ef4444" : "#10b981";
-          }}
-          maskColor="rgba(0, 0, 0, 0.75)"
-          className="!bg-panel !border-line !rounded-xl !shadow-2xl overflow-hidden"
+        <Background color="#1a1a1a" gap={24} size={1} />
+        <Controls
+          showInteractive={false}
+          className="!border-line !bg-panel !shadow-none overflow-hidden"
         />
       </ReactFlow>
 
-      {/* Time Travel Forensic Slider Mode */}
-      <TimeTravelBar
-        currentStep={timeStep}
-        onStepChange={setTimeStep}
-        activeScenarioLabel={activeScenarioLabel}
-      />
+      {showTimeTravel && (
+        <TimeTravelBar
+          currentStep={timeStep}
+          onStepChange={setTimeStep}
+          activeScenarioLabel={activeScenarioLabel}
+        />
+      )}
     </div>
   );
 }

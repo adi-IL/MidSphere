@@ -4,7 +4,7 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Vercel-grade monochrome dark (calm product surface)
+        // Geist / Linear monochrome dark — scarce semantic color only
         canvas: "#000000",
         panel: "#0a0a0a",
         elevated: "#111111",
@@ -13,10 +13,9 @@ export default {
         ink: "#ededed",
         mute: "#888888",
         faint: "#666666",
-        // semantic: scarce color
-        good: "#00c853",
+        good: "#3ecf8e",
         warn: "#f5a623",
-        bad: "#ff4d4f",
+        bad: "#ff5c5c",
         accent: "#0070f3",
       },
       fontFamily: {
@@ -25,6 +24,15 @@ export default {
       },
       fontSize: {
         "2xs": ["11px", { lineHeight: "16px" }],
+      },
+      borderRadius: {
+        sm: "4px",
+        DEFAULT: "6px",
+        md: "6px",
+        lg: "8px",
+      },
+      spacing: {
+        // Snap common gaps to 4px grid (Tailwind already multiples of 4)
       },
     },
   },

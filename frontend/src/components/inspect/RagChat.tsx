@@ -40,13 +40,13 @@ export function RagChat({ job }: Props) {
     ) {
       responseText = `**MidSphere Circuit Breaker Control Operations:**
 
-1. **⚡ Trip Circuit Button:**
-   • **Action:** Calls \`/v1/jobs/{id}/trip\` (or updates job-local state when offline), setting \`gateStatus = BLOCKED\`.
-   • **DataHub Integration:** MidSphere policy enforces \`BLOCKED\` on Consumer Gate (\`GET /v1/gate/{urn}\`). Live DataHub MCP tags/properties are mutated when live MCP integration and mutations (\`TOOLS_IS_MUTATION_ENABLED=true\`) are enabled.
+1. **Trip**
+   - Calls \`/v1/jobs/{id}/trip\` (or job-local state when offline), setting \`gateStatus = BLOCKED\`.
+   - Consumer Gate enforces BLOCKED for MidSphere clients. Live MCP tags apply when mutations are enabled.
 
-2. **🔓 Lift Quarantine Button:**
-   • **Action:** Calls \`/v1/jobs/{id}/lift\` (or updates job-local state when offline), setting \`gateStatus = LIFTED\`.
-   • **DataHub Integration:** Clears quarantine in MidSphere job state. Consumer Gate now returns \`OPEN / ALLOW\`, unblocking downstream pipelines. Live DataHub tags/properties are mutated when live MCP integration is enabled.`;
+2. **Lift**
+   - Calls \`/v1/jobs/{id}/lift\` (or job-local state when offline), setting \`gateStatus = LIFTED\`.
+   - Clears advisory quarantine; gate returns OPEN for those URNs. Live MCP updates apply when enabled.`;
 
     }
 
