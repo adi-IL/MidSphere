@@ -51,7 +51,7 @@ ANTIGRAVITY_ENABLED=false USE_OFFICIAL_MCP=false python -m pytest tests/ -q
 | --- | --- |
 | GET | `/v1/health` |
 | POST | `/v1/jobs` |
-| GET | `/v1/jobs/latest` |
+| GET | `/v1/jobs/latest` | 404 when empty (no auto-pipeline) |
 | GET | `/v1/jobs/{id}` |
 | POST | `/v1/jobs/{id}/lift` |
 | POST | `/v1/jobs/{id}/trip` |

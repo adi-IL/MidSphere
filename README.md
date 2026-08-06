@@ -125,7 +125,7 @@ Cloud Run cannot use laptop `localhost` as GMS. Operators run official DataHub q
 | --- | --- | --- |
 | GET | `/v1/health` | Health and stack metadata |
 | POST | `/v1/jobs` | Run closed loop |
-| GET | `/v1/jobs/latest` | Latest job |
+| GET | `/v1/jobs/latest` | Latest job (404 if none; does not auto-run) |
 | GET | `/v1/jobs/{id}` | Job by id |
 | POST | `/v1/jobs/{id}/lift` | Lift quarantine |
 | POST | `/v1/jobs/{id}/trip` | Re-run closed loop with auto-trip |

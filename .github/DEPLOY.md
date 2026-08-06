@@ -99,6 +99,22 @@ WIF provider attribute condition must allow `adi-IL/MidSphere` (legacy `adi-IL/M
 
 Deploy service account roles already in use: `run.admin`, `cloudbuild.builds.editor`, `artifactregistry.admin`, `storage.admin`, `iam.serviceAccountUser`.
 
+**GMS URL:** `backend/cloudrun-env.yaml` must **not** set `DATAHUB_GMS_URL` to localhost. Deploy workflow captures any pre-deploy non-localhost GMS and restores it after `--env-vars-file` (which replaces the env map). Point GMS with `scripts/gce_datahub_schedule.sh start-now` when the quickstart IP changes.
+
+**Critical:** after a repo rename, also grant `roles/iam.workloadIdentityUser` on the deploy SA to the **new** principal, not only update the provider condition:
+
+```bash
+# Provider admission (pool entry) alone is not enough.
+# Missing this binding surfaces as: Permission 'iam.serviceAccounts.getAccessToken' denied
+gcloud iam service-accounts add-iam-policy-binding \
+  sentinel-deployer@project-dace7531-ac79-4f81-bd2.iam.gserviceaccount.com \
+  --project=project-dace7531-ac79-4f81-bd2 \
+  --role=roles/iam.workloadIdentityUser \
+  --member='principalSet://iam.googleapis.com/projects/1053689941073/locations/global/workloadIdentityPools/github-actions-pool/attribute.repository/adi-IL/MidSphere'
+```
+
+Symptom of a missing SA binding: Authenticate WIF succeeds, then Setup gcloud fails on `getAccessToken`.
+
 ### Optional repository variables
 
 | Variable | Default |

@@ -446,8 +446,14 @@ export default function App() {
         );
         return;
       }
+      addLog(
+        makeLog(
+          "CircuitBreaker",
+          "STATUS",
+          "API trip failed or timed out · applying local sim gate BLOCKED",
+        ),
+      );
     }
-
 
     // Local / Offline demo trip
     setJob((prev) => {
@@ -498,8 +504,14 @@ export default function App() {
         );
         return;
       }
+      addLog(
+        makeLog(
+          "CircuitBreaker",
+          "STATUS",
+          "API lift failed or timed out · applying local sim gate LIFTED",
+        ),
+      );
     }
-
 
     // Local / Offline demo lift
     setJob((prev) => {
@@ -544,6 +556,7 @@ export default function App() {
     <div className="flex h-full flex-col bg-canvas text-ink">
       <TopBar
         connection={connection}
+        dataSource={source}
         catalog={catalog}
         scanning={scanning}
         activeScenario={activeScenario}

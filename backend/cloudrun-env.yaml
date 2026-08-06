@@ -1,8 +1,10 @@
-# Cloud Run env defaults for deploys. Live DATAHUB_GMS_URL is often set via
-# `gcloud run services update` to a reachable quickstart (e.g. GCE public IP).
+# Cloud Run env defaults for deploys.
+# Do NOT put DATAHUB_GMS_URL here: --env-vars-file replaces the whole map and a
+# localhost default would break production GMS after every ship. Live GMS is set
+# via `gcloud run services update` / scripts/gce_datahub_schedule.sh start-now,
+# and deploy-backend.yml restores any pre-deploy non-localhost GMS URL.
 # Do not commit a personal project id or long-lived tokens here.
 CORS_ORIGINS: "http://localhost:5173,https://midsphere.vercel.app,https://midsphere-aditya-ai-architects-projects.vercel.app"
-DATAHUB_GMS_URL: "http://localhost:8080"
 DATAHUB_TIER: "oss"
 USE_OFFICIAL_MCP: "true"
 TOOLS_IS_MUTATION_ENABLED: "true"

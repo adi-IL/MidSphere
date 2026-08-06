@@ -65,7 +65,18 @@ def health() -> dict:
     s = get_settings()
     client = build_client_from_env()
     probe = client.probe()
-    official = {"ok": False, "tools": 0, "error": None}
+    # Official MCP stdio probe is expensive; default off so /health stays fast.
+    # When skipped, do not report ok:false (that looked like a broken MCP path).
+    official: dict = {
+        "probed": False,
+        "ok": None,
+        "tools": None,
+        "error": None,
+        "note": (
+            "Probe disabled (HEALTH_PROBE_OFFICIAL_MCP!=true). "
+            "Job execution_mode / live TOOL events are ground truth for MCP use."
+        ),
+    }
     try:
         from midsphere_mcp.official import probe_official_mcp
 
@@ -80,13 +91,19 @@ def health() -> dict:
                 mutations=probe.mutations_enabled,
             )
             official = {
+                "probed": True,
                 "ok": r.ok,
                 "tools": len(r.tools),
                 "error": r.error,
                 "cmd": r.server_cmd,
             }
     except Exception as exc:  # noqa: BLE001
-        official = {"ok": False, "tools": 0, "error": str(exc)[:200]}
+        official = {
+            "probed": True,
+            "ok": False,
+            "tools": 0,
+            "error": str(exc)[:200],
+        }
 
     return {
         "status": "ok",
@@ -133,10 +150,14 @@ def create_job(body: CreateJobRequest) -> JobArtifact:
 
 @router.get("/jobs/latest", response_model=JobArtifact)
 def latest_job() -> JobArtifact:
-    global _LATEST
+    """Return the most recent in-memory job. Never auto-runs a pipeline.
+
+    Cold Cloud Run + empty store used to block ~60s on GET and time out the
+    frontend boot path (12s). Clients should fall back to sample artifacts or
+    POST /v1/jobs when empty.
+    """
     if not _LATEST or _LATEST not in _JOBS:
-        job = run_closed_loop(DEFAULT_ROOT)
-        return _store(job)
+        raise HTTPException(status_code=404, detail="no jobs yet; POST /v1/jobs")
     return _JOBS[_LATEST]
 
 
@@ -176,8 +197,9 @@ def gate(urn: str) -> GateDecision:
 
 @router.get("/gate-default-blocked", response_model=GateDecision)
 def gate_default_blocked() -> GateDecision:
-    """Convenience: gate for healthcare mart_billing after latest job."""
+    """Convenience: gate for healthcare mart_billing against latest job (if any).
+
+    Does not auto-run a pipeline when the store is empty (returns OPEN).
+    """
     job = _JOBS.get(_LATEST) if _LATEST else None
-    if job is None:
-        job = _store(run_closed_loop(DEFAULT_ROOT))
     return evaluate_from_job(URN_BILLING, job)

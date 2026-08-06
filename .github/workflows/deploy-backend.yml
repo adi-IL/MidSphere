@@ -90,6 +90,31 @@ jobs:
         working-directory: backend
         run: |
           set -euo pipefail
+          # --env-vars-file replaces the entire env map. Preserve a live GMS URL
+          # (set by start-now / manual update) so redeploy does not force localhost.
+          PREV_GMS=""
+          if gcloud run services describe "$SERVICE" \
+              --region "$REGION" --project "$PROJECT_ID" >/dev/null 2>&1; then
+            PREV_GMS=$(gcloud run services describe "$SERVICE" \
+              --region "$REGION" --project "$PROJECT_ID" \
+              --format='value(spec.template.spec.containers[0].env)' 2>/dev/null \
+              | tr ';' '\n' | sed -n 's/^DATAHUB_GMS_URL=\(.*\)$/\1/p' | head -1 || true)
+            # Fallback parse via yaml when format differs
+            if [[ -z "${PREV_GMS}" ]]; then
+              PREV_GMS=$(gcloud run services describe "$SERVICE" \
+                --region "$REGION" --project "$PROJECT_ID" --format=json \
+                | python3 -c "
+import json,sys
+d=json.load(sys.stdin)
+for e in d.get('spec',{}).get('template',{}).get('spec',{}).get('containers',[{}])[0].get('env') or []:
+  if e.get('name')=='DATAHUB_GMS_URL':
+    print(e.get('value') or '')
+    break
+" 2>/dev/null || true)
+            fi
+          fi
+          echo "Pre-deploy DATAHUB_GMS_URL=${PREV_GMS:-<unset>}"
+
           gcloud run deploy "$SERVICE" \
             --source . \
             --region "$REGION" \
@@ -97,6 +122,17 @@ jobs:
             --allow-unauthenticated \
             --env-vars-file cloudrun-env.yaml \
             --quiet
+
+          # Restore non-localhost GMS so judges keep catalog reachability.
+          if [[ -n "${PREV_GMS}" && "${PREV_GMS}" != "http://localhost:8080" && "${PREV_GMS}" != "http://127.0.0.1:8080" ]]; then
+            echo "Restoring DATAHUB_GMS_URL=${PREV_GMS}"
+            gcloud run services update "$SERVICE" \
+              --region "$REGION" --project "$PROJECT_ID" \
+              --update-env-vars="DATAHUB_GMS_URL=${PREV_GMS}" \
+              --quiet
+          else
+            echo "No live GMS URL to restore (set via scripts/gce_datahub_schedule.sh start-now)."
+          fi
 
       - name: Resolve service URL
         id: url

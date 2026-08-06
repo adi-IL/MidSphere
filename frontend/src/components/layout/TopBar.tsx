@@ -7,6 +7,8 @@ export const MIDSPHERE_GITHUB_URL = "https://github.com/adi-IL/MidSphere";
 
 interface Props {
   connection: ConnectionState;
+  /** Whether the canvas job came from API or offline sample (honesty). */
+  dataSource?: "api" | "demo";
   catalog: CatalogState;
   scanning?: boolean;
   activeScenario?: ScenarioId;
@@ -44,6 +46,7 @@ function StatusDot({
 
 export function TopBar({
   connection,
+  dataSource = "demo",
   catalog,
   scanning = false,
   activeScenario = "healthcare",
@@ -52,6 +55,17 @@ export function TopBar({
 }: Props) {
   const apiLive = connection === "live";
   const gmsOn = catalog === "on";
+  // Do not say "Live" when the canvas is still sample data under a healthy API.
+  const connectionLabel = scanning
+    ? "Running"
+    : connection === "checking"
+      ? "Checking"
+      : !apiLive
+        ? "Offline"
+        : dataSource === "demo"
+          ? "API · Sample"
+          : "API · Job";
+  const connectionOn = scanning || apiLive;
 
   return (
     <header className="flex h-12 shrink-0 items-center justify-between gap-4 border-b border-line bg-canvas px-4">
@@ -115,9 +129,9 @@ export function TopBar({
 
         <div className="hidden items-center gap-3 border-l border-line pl-3 md:flex">
           <StatusDot
-            on={apiLive || scanning}
+            on={connectionOn}
             pulse={scanning}
-            label={scanning ? "Running" : apiLive ? "Live" : "Offline"}
+            label={connectionLabel}
           />
           <StatusDot on={gmsOn} label={gmsOn ? "GMS" : "GMS off"} />
         </div>

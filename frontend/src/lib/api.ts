@@ -3,8 +3,8 @@ import { DEMO_JOB } from "./demoJob";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "";
 
-/** Avoid infinite "Loading MidSphere..." on hung Cloud Run cold starts. */
-const DEFAULT_TIMEOUT_MS = 12_000;
+/** Boot/health: allow cold Cloud Run wake without hanging forever. */
+const DEFAULT_TIMEOUT_MS = 45_000;
 
 async function tryJson<T>(
   path: string,
@@ -68,7 +68,7 @@ export async function fetchGate(urn: string): Promise<GateDecision | null> {
 
 export async function liftQuarantineJob(jobId: string): Promise<JobArtifact | null> {
   const ctrl = new AbortController();
-  const t = window.setTimeout(() => ctrl.abort(), 12_000);
+  const t = window.setTimeout(() => ctrl.abort(), 45_000);
   try {
     const res = await fetch(`${API_BASE}/v1/jobs/${jobId}/lift`, {
       method: "POST",
@@ -103,12 +103,13 @@ export async function tripJob(jobId: string): Promise<JobArtifact | null> {
   }
 }
 
-/** Prefer live API; fall back to offline demo artifact for judges. */
+/** Prefer live API job; fall back to offline demo when empty (404) or unreachable. */
 export async function loadCommandJob(): Promise<{
   job: JobArtifact;
   source: "api" | "demo";
 }> {
-  const live = await tryJson<JobArtifact>("/v1/jobs/latest");
+  // Empty store returns 404 quickly (no auto-pipeline). tryJson -> null.
+  const live = await tryJson<JobArtifact>("/v1/jobs/latest", 30_000);
   if (live?.job_id) return { job: live, source: "api" };
   return { job: DEMO_JOB, source: "demo" };
 }
