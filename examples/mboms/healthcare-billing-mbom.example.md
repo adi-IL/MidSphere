@@ -27,7 +27,7 @@ raw_patients → staging_patients → mart_billing        [IMPACTED]
                                → mart_demographics   [not impacted by this finding set]
 ```
 
-Risk score: **72 / 100** (example).
+Risk score: **61 / 100** (matches closed-loop default for healthcare).
 
 ## Quarantine applied (advisory)
 

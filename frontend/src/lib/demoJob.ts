@@ -30,7 +30,7 @@ export const DEMO_JOB: JobArtifact = {
     },
   ],
   blast_radius: {
-    risk_score: 72,
+    risk_score: 61,
     nodes: [
       {
         urn: "urn:li:dataset:(urn:li:dataPlatform:sqlite,healthcare.raw_patients,PROD)",
@@ -73,7 +73,7 @@ export const DEMO_JOB: JobArtifact = {
     ],
     properties: {
       "midsphere.gate_status": "BLOCKED",
-      "midsphere.risk_score": "72",
+      "midsphere.risk_score": "61",
     },
     gateStatus: "BLOCKED",
   },
@@ -86,12 +86,15 @@ export const DEMO_JOB: JobArtifact = {
     path: "examples/mboms/healthcare-billing-mbom.example.md",
     document_urn: "urn:li:document:midsphere-mbom-example",
   },
+  execution_mode: "demo_closed_loop",
+  mutations_applied: false,
+  datahub_reachable: false,
   events: [
     {
       ts: "14:02:01.012",
       agent: "ContextSentinel",
       kind: "STATUS",
-      message: "sim get_lineage urn=…raw_patients max_hops=2 240ms (demo artifact)",
+      message: "sim get_lineage urn=…raw_patients max_hops=2 downstream 240ms (demo artifact)",
       latency_ms: 240,
       items_processed: 4,
     },
@@ -105,7 +108,7 @@ export const DEMO_JOB: JobArtifact = {
       ts: "14:02:03.400",
       agent: "CascadeAnalyzer",
       kind: "SCORE",
-      message: "risk=72 impacted=selective billing=yes demographics=no",
+      message: "risk=61 impacted=selective billing=yes demographics=no",
       latency_ms: 110,
       items_processed: 2,
     },
@@ -156,7 +159,7 @@ export const DEMO_JOB: JobArtifact = {
       aspectValue: {
         properties: {
           "midsphere.gate_status": "BLOCKED",
-          "midsphere.risk_score": "72",
+          "midsphere.risk_score": "61",
           "midsphere.job_id": "example-healthcare-001",
         },
       },
@@ -261,6 +264,9 @@ export const ECOMMERCE_JOB: JobArtifact = {
     path: "examples/mboms/ecommerce-pii-mbom.example.md",
     document_urn: "urn:li:document:midsphere-ecommerce-mbom",
   },
+  execution_mode: "demo_closed_loop",
+  mutations_applied: false,
+  datahub_reachable: false,
   events: [
     {
       ts: "14:10:01.000",
@@ -436,6 +442,9 @@ export const NYCTAXI_JOB: JobArtifact = {
     path: "examples/mboms/nyctaxi-revenue-mbom.example.md",
     document_urn: "urn:li:document:midsphere-nyctaxi-mbom",
   },
+  execution_mode: "demo_closed_loop",
+  mutations_applied: false,
+  datahub_reachable: false,
   events: [
     {
       ts: "14:15:01.000",
@@ -525,9 +534,11 @@ export const NYCTAXI_JOB: JobArtifact = {
   ],
 };
 
-export const DEMO_DIFF = `--- a/models/staging/stg_patients.sql
+/** Healthcare fix diff — matches examples/prs/fix-negative-billing.example.diff */
+export const HEALTHCARE_DIFF = `--- a/models/staging/stg_patients.sql
 +++ b/models/staging/stg_patients.sql
 @@ -1,12 +1,18 @@
+ -- Example FixArchitect output (dry-run). Ground in get_dataset_queries in production.
  with source as (
    select * from {{ ref('raw_patients') }}
  ),
@@ -549,21 +560,157 @@ export const DEMO_DIFF = `--- a/models/staging/stg_patients.sql
  select * from cleaned
 `;
 
-export const DEMO_MBOM = `# MBOM: mart_billing — MidSphere audit
+/** Ecommerce PII masking — matches examples/prs/fix-pii-masking.example.diff */
+export const ECOMMERCE_DIFF = `--- a/models/marts/mart_customer_360.sql
++++ b/models/marts/mart_customer_360.sql
+@@ -12,7 +12,7 @@ select
+     customer_id,
+     first_name,
+     last_name,
+-    social_security_number,
++    to_hex(sha256(social_security_number)) as social_security_number_hash,
+     email_address
+ from {{ ref('stg_customers') }}
+`;
 
-**Gate:** BLOCKED (advisory) · **Risk:** 72
+/** NYC taxi freshness — matches examples/prs/fix-taxi-freshness.example.diff */
+export const NYCTAXI_DIFF = `--- a/models/marts/mart_monthly_revenue.sql
++++ b/models/marts/mart_monthly_revenue.sql
+@@ -8,5 +8,5 @@ select
+     sum(fare_amount) as total_revenue
+ from {{ ref('stg_trip_fare') }}
+-where pickup_datetime >= current_date() - interval 7 day
++where pickup_datetime >= current_date() - interval 1 day
+`;
+
+/** Healthcare MBOM — aligned with backend risk 61 */
+export const HEALTHCARE_MBOM = `# MBOM: mart_billing — MidSphere audit (example)
+
+> Offline example for judges. Live path uses \`save_document\` when GMS + mutations are enabled.
+
+| Field | Value |
+| --- | --- |
+| Document type | Analysis |
+| Topics | midsphere, circuit-breaker, data-quality |
+| Related assets | healthcare.mart_billing |
+| Gate status | BLOCKED (advisory) |
+| Risk | **61 / 100** |
 
 ## Summary
+
 Negative billing cascade into \`mart_billing\`. Demographics fork left open (selective halt).
 
 ## Findings
+
 | Type | Severity | Column |
 | --- | --- | --- |
 | NEGATIVE_BILLING | HIGH | billing_amount |
 | DATE_SWAP | MEDIUM | date_of_admission |
 
 ## Lift criteria
-1. Merge fix filter on non-negative billing + date order  
-2. Re-scan clean  
+
+1. Merge fix filter on non-negative billing + date order
+2. Re-scan clean
 3. remove_tags + gate_status=LIFTED
 `;
+
+export const ECOMMERCE_MBOM = `# MBOM: mart_customer_360 — MidSphere audit (example)
+
+| Field | Value |
+| --- | --- |
+| Gate status | BLOCKED (advisory) |
+| Risk | **88 / 100** |
+| Open fork | mart_product_catalog |
+
+## Summary
+
+Unmasked SSN in customer 360 analytics mart. Product catalog left open (selective halt).
+
+## Findings
+
+| Type | Severity | Column |
+| --- | --- | --- |
+| UNGOVERNED_PII | CRITICAL | social_security_number |
+| MISSING_OWNER | HIGH | owner |
+
+## Remediation
+
+\`examples/prs/fix-pii-masking.example.diff\` — SHA-256 hash SSN in dbt mart.
+`;
+
+export const NYCTAXI_MBOM = `# MBOM: mart_monthly_revenue — MidSphere audit (example)
+
+| Field | Value |
+| --- | --- |
+| Gate status | BLOCKED (advisory) |
+| Risk | **65 / 100** |
+| Open fork | mart_trip_distance_stats |
+
+## Summary
+
+Freshness SLA breach (72h lag vs 24h SLA) on monthly revenue. Distance stats left open.
+
+## Findings
+
+| Type | Severity | Column |
+| --- | --- | --- |
+| FRESHNESS_VIOLATION | HIGH | pickup_datetime |
+| SCHEMA_DRIFT | MEDIUM | extra_surcharge |
+
+## Remediation
+
+\`examples/prs/fix-taxi-freshness.example.diff\` — tighten partition filter window.
+`;
+
+/** @deprecated Use resolveFixDiff(job) — healthcare alias */
+export const DEMO_DIFF = HEALTHCARE_DIFF;
+/** @deprecated Use resolveMbomMarkdown(job) — healthcare alias */
+export const DEMO_MBOM = HEALTHCARE_MBOM;
+
+function scenarioKeyFromJob(job: JobArtifact | null | undefined): "healthcare" | "ecommerce" | "nyctaxi" {
+  const blob = [
+    job?.root_urn ?? "",
+    job?.pr?.path ?? "",
+    job?.mbom?.path ?? "",
+    ...(job?.findings?.map((f) => f.type) ?? []),
+  ]
+    .join(" ")
+    .toLowerCase();
+  if (blob.includes("ecommerce") || blob.includes("pii") || blob.includes("customer")) {
+    return "ecommerce";
+  }
+  if (blob.includes("nyctaxi") || blob.includes("taxi") || blob.includes("freshness") || blob.includes("trips")) {
+    return "nyctaxi";
+  }
+  return "healthcare";
+}
+
+/** Scenario-correct fix diff for Inspector Fix tab. */
+export function resolveFixDiff(job: JobArtifact | null | undefined): string {
+  const key = scenarioKeyFromJob(job);
+  if (key === "ecommerce") return ECOMMERCE_DIFF;
+  if (key === "nyctaxi") return NYCTAXI_DIFF;
+  return HEALTHCARE_DIFF;
+}
+
+/** Scenario-correct MBOM markdown for Inspector MBOM tab. */
+export function resolveMbomMarkdown(job: JobArtifact | null | undefined): string {
+  const key = scenarioKeyFromJob(job);
+  if (key === "ecommerce") return ECOMMERCE_MBOM;
+  if (key === "nyctaxi") return NYCTAXI_MBOM;
+  return HEALTHCARE_MBOM;
+}
+
+/** Hot lineage edge label — scenario-aware, not always "PII". */
+export function resolveHotEdgeLabel(jobOrLabel?: JobArtifact | string | null): string {
+  if (typeof jobOrLabel === "string") {
+    const s = jobOrLabel.toLowerCase();
+    if (s.includes("commerce") || s.includes("pii")) return "PII risk path";
+    if (s.includes("taxi") || s.includes("fresh")) return "Stale path";
+    return "Quality risk path";
+  }
+  const key = scenarioKeyFromJob(jobOrLabel);
+  if (key === "ecommerce") return "PII risk path";
+  if (key === "nyctaxi") return "Stale path";
+  return "Quality risk path";
+}

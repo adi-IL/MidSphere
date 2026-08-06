@@ -3,6 +3,9 @@
   "root_urn": "urn:li:dataset:(urn:li:dataPlatform:sqlite,healthcare.raw_patients,PROD)",
   "mode": "full",
   "status": "succeeded",
+  "execution_mode": "demo_closed_loop",
+  "mutations_applied": false,
+  "datahub_reachable": false,
   "findings": [
     {
       "id": "f1",
@@ -24,8 +27,23 @@
     }
   ],
   "blast_radius": {
-    "risk_score": 72,
+    "risk_score": 61,
+    "selective": true,
     "nodes": [
+      {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:sqlite,healthcare.raw_patients,PROD)",
+        "name": "raw_patients",
+        "hop": 0,
+        "impacted": true,
+        "reason": "Source of planted quality issues"
+      },
+      {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:sqlite,healthcare.staging_patients,PROD)",
+        "name": "staging_patients",
+        "hop": 1,
+        "impacted": true,
+        "reason": "Propagates source issues"
+      },
       {
         "urn": "urn:li:dataset:(urn:li:dataPlatform:sqlite,healthcare.mart_billing,PROD)",
         "name": "mart_billing",
@@ -53,16 +71,20 @@
     ],
     "properties": {
       "midsphere.gate_status": "BLOCKED",
-      "midsphere.risk_score": "72"
+      "midsphere.risk_score": "61"
     },
     "gateStatus": "BLOCKED"
   },
   "pr": {
     "status": "dry_run",
-    "path": "examples/prs/fix-negative-billing.example.diff"
+    "path": "examples/prs/fix-negative-billing.example.diff",
+    "diff_summary": "filter negative billing + enforce admission<=discharge"
   },
   "mbom": {
     "path": "examples/mboms/healthcare-billing-mbom.example.md",
-    "document_urn": "urn:li:document:midsphere-mbom-example"
+    "document_urn": "urn:li:document:midsphere-mbom-example",
+    "related_assets": [
+      "urn:li:dataset:(urn:li:dataPlatform:sqlite,healthcare.mart_billing,PROD)"
+    ]
   }
 }

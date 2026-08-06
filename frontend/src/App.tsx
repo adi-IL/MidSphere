@@ -463,8 +463,9 @@ export default function App() {
         },
         blast_radius: {
           ...prev.blast_radius,
+          // Selective halt: only mark the trip target (and prior hop chain already set by job)
           nodes: prev.blast_radius.nodes.map((n) =>
-            n.urn === targetUrn || n.hop > 0 ? { ...n, impacted: true } : n,
+            n.urn === targetUrn ? { ...n, impacted: true } : n,
           ),
         },
       };

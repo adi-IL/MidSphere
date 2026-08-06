@@ -85,8 +85,9 @@ export async function liftQuarantineJob(jobId: string): Promise<JobArtifact | nu
 }
 
 export async function tripJob(jobId: string): Promise<JobArtifact | null> {
+  // trip re-runs full closed loop (Antigravity can take 30–90s)
   const ctrl = new AbortController();
-  const t = window.setTimeout(() => ctrl.abort(), 12_000);
+  const t = window.setTimeout(() => ctrl.abort(), 120_000);
   try {
     const res = await fetch(`${API_BASE}/v1/jobs/${jobId}/trip`, {
       method: "POST",

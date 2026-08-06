@@ -97,13 +97,17 @@ Review the full diff under the **Inspector → Fix** tab. Merging this PR resolv
       lower.includes("gms") ||
       lower.includes("tool")
     ) {
+      const mode = job.execution_mode ?? "unknown";
+      const mut = job.mutations_applied === true ? "true" : "false";
+      const gms = job.datahub_reachable === true ? "reachable" : "offline / unknown";
       responseText = `**DataHub MCP Integration Architecture:**
 
-MidSphere connects directly to DataHub using the official \`uvx mcp-server-datahub@latest\` server over stdio / GraphQL GMS API:
+MidSphere uses the official \`uvx mcp-server-datahub@latest\` server when GMS is configured:
 
-• **Read Operations:** Executed via official MCP tools (\`get_entities\`, \`list_schema_fields\`, \`get_lineage\`, \`get_dataset_queries\`).
-• **Write Operations:** Writes advisory graph state using \`add_tags\`, \`remove_tags\`, \`add_structured_properties\`, and \`save_document\`.
-• **Audit Honesty:** Telemetry strictly verifies tool tokens against real MCP schemas. Deterministic fallback steps are clearly marked with \`sim\` prefixes.`;
+• **Read:** \`get_entities\`, \`list_schema_fields\`, \`get_lineage\` (downstream for blast radius), \`get_dataset_queries\`, \`search\`.
+• **Write (mutations enabled):** \`add_tags\`, \`remove_tags\`, \`add_structured_properties\`, \`save_document\`.
+• **This job:** execution_mode=\`${mode}\` · mutations_applied=\`${mut}\` · GMS ${gms}.
+• **Honesty:** Offline steps use \`sim\` STATUS lines. Quarantine is advisory — Consumer Gate is MidSphere policy, not platform-wide MCP denial.`;
     }
 
     // 5. RISK SCORE FORMULA
@@ -148,17 +152,19 @@ You can ask me about:
     <div className="flex flex-1 h-full min-h-0 flex-col font-mono text-xs gap-3">
       <div className="flex shrink-0 items-center justify-between border-b border-line pb-2">
         <span className="text-2xs uppercase tracking-widest text-faint font-semibold">
-          Audit Q&A Intelligence Assistant
+          Operator FAQ
         </span>
-        <span className="rounded bg-elevated px-2 py-0.5 text-2xs text-accent font-semibold border border-line">
-          Grounded Context
+        <span className="rounded bg-elevated px-2 py-0.5 text-2xs text-mute font-semibold border border-line">
+          Local rules · job-grounded
         </span>
       </div>
 
       <div className="flex-1 min-h-0 overflow-y-auto space-y-2.5 pr-1 custom-scrollbar">
         {messages.length === 0 ? (
           <div className="space-y-2.5 pt-1">
-            <div className="text-2xs text-faint">Ask any question or pick a suggested topic:</div>
+            <div className="text-2xs text-faint">
+              Keyword answers from this job artifact and MidSphere policy (not a live LLM call).
+            </div>
             <div className="flex flex-col gap-1.5">
               {presetChips.map((chip, idx) => (
                 <button
@@ -167,7 +173,7 @@ You can ask me about:
                   className="rounded border border-line bg-canvas p-2.5 text-2xs text-muted hover:text-ink hover:border-faint transition-all text-left group shadow-sm"
                 >
                   <div className="text-ink group-hover:text-ink font-semibold">{chip}</div>
-                  <div className="text-[10px] text-faint mt-0.5">Click to query grounded AI engine</div>
+                  <div className="text-[10px] text-faint mt-0.5">Open preset answer</div>
                 </button>
               ))}
             </div>
@@ -183,8 +189,8 @@ You can ask me about:
               }`}
             >
               <div className="text-[9px] uppercase tracking-wider text-faint mb-1.5 flex items-center justify-between">
-                <span className="font-bold">{m.role === "user" ? "You" : "MidSphere Intelligence Bot"}</span>
-                <span className="text-[8px] text-faint">Grounded AI</span>
+                <span className="font-bold">{m.role === "user" ? "You" : "Operator FAQ"}</span>
+                <span className="text-[8px] text-faint">local rules</span>
               </div>
               <div className="whitespace-pre-wrap">{m.text}</div>
             </div>

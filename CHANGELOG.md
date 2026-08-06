@@ -6,6 +6,29 @@ Notable shipping changes. Punchlines stay consistent with README / AGENTS:
 
 ---
 
+## 2.1 — Honesty + scenario fidelity (post deep audit)
+
+### Frontend
+
+- Inspector **Fix / MBOM** tabs resolve content per scenario (healthcare / ecommerce / nyctaxi), not healthcare-only constants.
+- Offline healthcare risk aligned to **61** (matches backend + formula).
+- Lineage edge labels scenario-aware (`Quality risk path` / `PII risk path` / `Stale path`); node chrome no longer invents GMS row counts.
+- Audit Q&A relabeled **Operator FAQ** (local rules · job-grounded) — not “Grounded AI”.
+- Aspects badge: **Job aspect snapshot** (not “GMS GraphQL Sync”).
+- `tripJob` timeout 120s; offline trip keeps selective halt (no blanket hop>0 impact).
+
+### Backend
+
+- Shared scenario pack: `agents/scenarios.py` (single source for stage tools + fallback).
+- Live MCP `get_lineage` uses **downstream** (`upstream=false`) for blast-radius story; `list_schema_fields` uses job `root_urn`.
+- Soft live content annotation (URN count) without replacing selective scenario graph.
+
+### examples/
+
+- Healthcare MBOM + job fixture risk **61**; telemetry sample uses honest `sim` STATUS; README documents risk/path table.
+
+---
+
 ## 2.0 — Ergonomics + multi-scenario (`v2-ergonomics-redesign`)
 
 ### Command Center

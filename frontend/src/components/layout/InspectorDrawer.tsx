@@ -1,7 +1,7 @@
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { JobArtifact } from "../../lib/types";
-import { DEMO_DIFF, DEMO_MBOM } from "../../lib/demoJob";
+import { resolveFixDiff, resolveMbomMarkdown } from "../../lib/demoJob";
 import { RiskScorecard } from "../score/RiskScorecard";
 import { RiskRadarChart } from "../score/RiskRadarChart";
 import { GatePreview } from "../inspect/GatePreview";
@@ -183,7 +183,7 @@ export function InspectorDrawer({
               )}
             </div>
             <pre className="overflow-x-auto rounded-md border border-line bg-canvas p-3 font-mono text-2xs leading-relaxed text-mute">
-              {DEMO_DIFF}
+              {resolveFixDiff(job)}
             </pre>
           </div>
         )}
@@ -214,7 +214,7 @@ export function InspectorDrawer({
             </div>
             <article className="prose-ms">
               <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                {DEMO_MBOM}
+                {resolveMbomMarkdown(job)}
               </ReactMarkdown>
             </article>
           </div>

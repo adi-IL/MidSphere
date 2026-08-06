@@ -17,9 +17,8 @@ import re
 import uuid
 from datetime import datetime, timezone
 
+from agents.scenarios import get_scenario_spec
 from models.artifacts import (
-    AuditFinding,
-    BlastNode,
     JobArtifact,
     JobEvent,
     QuarantineReceipt,
@@ -218,23 +217,32 @@ def run_closed_loop_fallback(
                 # Real tool invocations only when GMS is reachable
                 if probe.reachable:
                     read_calls: list[tuple[str, dict]] = []
+                    # Blast-radius story needs downstream lineage (official MCP:
+                    # upstream=False => downstream). See mcp-server-datahub get_lineage.
                     if "get_lineage" in official_tools:
                         read_calls.append(
                             (
                                 "get_lineage",
                                 {
                                     "urn": root_urn,
-                                    "upstream": True,
+                                    "upstream": False,
                                     "max_hops": 2,
                                 },
                             )
                         )
                     if "list_schema_fields" in official_tools:
                         read_calls.append(
-                            ("list_schema_fields", {"urn": URN_RAW})
+                            ("list_schema_fields", {"urn": root_urn})
                         )
                     if "search" in official_tools:
-                        read_calls.append(("search", {"query": "healthcare"}))
+                        # Scenario-aware search seed (not always healthcare)
+                        q = "healthcare"
+                        rl = root_urn.lower()
+                        if "ecommerce" in rl or "customers" in rl:
+                            q = "ecommerce"
+                        elif "taxi" in rl or "trips" in rl or "nyctaxi" in rl:
+                            q = "taxi"
+                        read_calls.append(("search", {"query": q}))
                     if read_calls:
                         live = call_official_mcp(
                             s_url,
@@ -251,6 +259,17 @@ def run_closed_loop_fallback(
                                     "TOOL",
                                     f"{c.get('tool')} official_mcp ok",
                                 )
+                                # Soft annotate: count URNs in preview (do not replace scenario graph)
+                                preview = str(c.get("content_preview") or "")
+                                urn_hits = len(
+                                    re.findall(r"urn:li:[a-zA-Z0-9:(),._-]+", preview)
+                                )
+                                if urn_hits:
+                                    emit(
+                                        "ContextSentinel",
+                                        "STATUS",
+                                        f"live {c.get('tool')} content_urns≈{urn_hits} (scenario pack still drives selective halt)",
+                                    )
                             else:
                                 emit(
                                     "ContextSentinel",
@@ -282,152 +301,58 @@ def run_closed_loop_fallback(
             "USE_OFFICIAL_MCP=false; deterministic stages only (no official MCP process)",
         )
 
-    # Deterministic audit findings based on scenario URN
+    # Deterministic audit findings from shared scenario pack
     if live_tool_calls == 0:
-        sim("ContextSentinel", "get_lineage", f"urn={root_urn} max_hops=2 upstream=true")
+        sim(
+            "ContextSentinel",
+            "get_lineage",
+            f"urn={root_urn} max_hops=2 downstream (upstream=false)",
+        )
         sim("ContextSentinel", "list_schema_fields", f"urn={root_urn}")
 
-    urn_lower = root_urn.lower()
-    if "ecommerce" in urn_lower or "customers" in urn_lower:
-        urn_raw_customers = "urn:li:dataset:(urn:li:dataPlatform:snowflake,ecommerce.raw_customers,PROD)"
-        urn_stg_customers = "urn:li:dataset:(urn:li:dataPlatform:dbt,ecommerce.stg_customers,PROD)"
-        urn_mart_c360 = "urn:li:dataset:(urn:li:dataPlatform:looker,ecommerce.mart_customer_360,PROD)"
-        urn_mart_catalog = "urn:li:dataset:(urn:li:dataPlatform:snowflake,ecommerce.mart_product_catalog,PROD)"
-
-        emit("ContextSentinel", "FIND", f"UNGOVERNED_PII severity=CRITICAL entity={urn_mart_c360}")
-        emit("ContextSentinel", "FIND", f"MISSING_OWNER severity=HIGH entity={urn_raw_customers}")
-
-        findings = [
-            AuditFinding(
-                id="f_pii1",
-                type="UNGOVERNED_PII",
-                severity="CRITICAL",
-                entity_urn=urn_mart_c360,
-                column_path="social_security_number",
-                evidence="Raw unhashed SSN exposed in customer_360 analytics mart",
-                rationale="Unencrypted PII violates GDPR & HIPAA compliance policies",
-            ),
-            AuditFinding(
-                id="f_pii2",
-                type="MISSING_OWNER",
-                severity="HIGH",
-                entity_urn=urn_raw_customers,
-                column_path="owner",
-                evidence="Dataset ownership metadata is unassigned",
-                rationale="Orphan datasets increase compliance risk and response latency",
-            ),
+    spec = get_scenario_spec(root_urn)
+    findings = list(spec["findings"])
+    blast_nodes = list(spec["nodes"])
+    risk = int(spec["risk_score"])
+    quarantine_urns = list(spec["target_urns"])
+    quarantine_tags = list(
+        spec.get("quarantine_tags")
+        or [
+            "urn:li:tag:QUARANTINED",
+            "urn:li:tag:CIRCUIT_BROKEN",
+            "urn:li:tag:MIDSPHERE_AUDIT",
         ]
-        blast_nodes = [
-            BlastNode(urn=urn_raw_customers, name="raw_customers", hop=0, impacted=True, reason="Contains raw unmasked customer PII"),
-            BlastNode(urn=urn_stg_customers, name="stg_customers", hop=1, impacted=True, reason="Propagates unmasked SSN to analytics layer"),
-            BlastNode(urn=urn_mart_c360, name="mart_customer_360", hop=2, impacted=True, reason="Exposes SSN to business intelligence dashboards"),
-            BlastNode(urn=urn_mart_catalog, name="mart_product_catalog", hop=2, impacted=False, reason="No PII fields involved (selective halt)"),
-        ]
-        risk = 88
-        quarantine_urns = [urn_mart_c360]
-        quarantine_tags = ["urn:li:tag:PII_LEAK", "urn:li:tag:QUARANTINED", "urn:li:tag:MIDSPHERE_AUDIT"]
-        pr_path = "examples/prs/fix-pii-masking.example.diff"
-        pr_summary = "Apply SHA-256 hashing to SSN in stg_customers.sql"
-        mbom_doc = "urn:li:document:midsphere-ecommerce-mbom"
-        mbom_path = "examples/mboms/ecommerce-pii-mbom.example.md"
-
-    elif "nyctaxi" in urn_lower or "trips" in urn_lower or "taxi" in urn_lower:
-        urn_raw_trips = "urn:li:dataset:(urn:li:dataPlatform:bigquery,nyctaxi.raw_yellow_trips,PROD)"
-        urn_stg_fare = "urn:li:dataset:(urn:li:dataPlatform:bigquery,nyctaxi.stg_trip_fare,PROD)"
-        urn_mart_revenue = "urn:li:dataset:(urn:li:dataPlatform:bigquery,nyctaxi.mart_monthly_revenue,PROD)"
-        urn_mart_dist = "urn:li:dataset:(urn:li:dataPlatform:bigquery,nyctaxi.mart_trip_distance_stats,PROD)"
-
-        emit("ContextSentinel", "FIND", f"FRESHNESS_VIOLATION severity=HIGH entity={urn_mart_revenue}")
-        emit("ContextSentinel", "FIND", f"SCHEMA_DRIFT severity=MEDIUM entity={urn_raw_trips}")
-
-        findings = [
-            AuditFinding(
-                id="f_taxi1",
-                type="FRESHNESS_VIOLATION",
-                severity="HIGH",
-                entity_urn=urn_mart_revenue,
-                column_path="pickup_datetime",
-                evidence="Last ingestion timestamp > 72 hours stale (SLA: 24h)",
-                rationale="Stale trip ingestion skews monthly revenue reports",
-            ),
-            AuditFinding(
-                id="f_taxi2",
-                type="SCHEMA_DRIFT",
-                severity="MEDIUM",
-                entity_urn=urn_raw_trips,
-                column_path="extra_surcharge",
-                evidence="Unannounced column addition extra_surcharge in raw ingestion",
-                rationale="Schema drift causes downstream dbt compilation failures",
-            ),
-        ]
-        blast_nodes = [
-            BlastNode(urn=urn_raw_trips, name="raw_yellow_trips", hop=0, impacted=True, reason="Source table stale by 72h"),
-            BlastNode(urn=urn_stg_fare, name="stg_trip_fare", hop=1, impacted=True, reason="Propagates stale ingestion timestamps"),
-            BlastNode(urn=urn_mart_revenue, name="mart_monthly_revenue", hop=2, impacted=True, reason="Breaches SLA for executive financial reporting"),
-            BlastNode(urn=urn_mart_dist, name="mart_trip_distance_stats", hop=2, impacted=False, reason="Non-time-critical analytics mart (selective halt)"),
-        ]
-        risk = 65
-        quarantine_urns = [urn_mart_revenue]
-        quarantine_tags = ["urn:li:tag:PIPELINE_LAG", "urn:li:tag:QUARANTINED", "urn:li:tag:MIDSPHERE_AUDIT"]
-        pr_path = "examples/prs/fix-taxi-freshness.example.diff"
-        pr_summary = "Adjust BigQuery partition filter & freshness SLA window"
-        mbom_doc = "urn:li:document:midsphere-nyctaxi-mbom"
-        mbom_path = "examples/mboms/nyctaxi-revenue-mbom.example.md"
-
-    else:
-        emit("ContextSentinel", "FIND", f"NEGATIVE_BILLING severity=HIGH entity={URN_BILLING}")
-        emit("ContextSentinel", "FIND", f"DATE_SWAP severity=MEDIUM entity={URN_RAW}")
-
-        findings = [
-            AuditFinding(
-                id="f1",
-                type="NEGATIVE_BILLING",
-                severity="HIGH",
-                entity_urn=URN_BILLING,
-                column_path="billing_amount",
-                evidence="~2% rows with billing_amount < 0 (planted healthcare dataset)",
-                rationale="Invalid financial measures poison billing mart aggregates",
-            ),
-            AuditFinding(
-                id="f2",
-                type="DATE_SWAP",
-                severity="MEDIUM",
-                entity_urn=URN_RAW,
-                column_path="date_of_admission",
-                evidence="admission after discharge on subset of rows",
-                rationale="Produces negative length_of_stay in billing path",
-            ),
-        ]
-        blast_nodes = [
-            BlastNode(urn=URN_RAW, name="raw_patients", hop=0, impacted=True, reason="Source of planted quality issues"),
-            BlastNode(urn=URN_STAGING, name="staging_patients", hop=1, impacted=True, reason="Propagates source issues"),
-            BlastNode(urn=URN_BILLING, name="mart_billing", hop=2, impacted=True, reason="NEGATIVE_BILLING + DATE_SWAP cascade"),
-            BlastNode(urn=URN_DEMOGRAPHICS, name="mart_demographics", hop=2, impacted=False, reason="Not affected by this finding set (selective halt)"),
-        ]
-        risk = 61
-        quarantine_urns = [URN_BILLING]
-        quarantine_tags = ["urn:li:tag:QUARANTINED", "urn:li:tag:CIRCUIT_BROKEN", "urn:li:tag:MIDSPHERE_AUDIT"]
-        pr_path = "examples/prs/fix-negative-billing.example.diff"
-        pr_summary = "filter negative billing + enforce admission<=discharge"
+    )
+    pr_path = str(spec["pr_path"])
+    pr_summary = str(spec["pr_summary"])
+    mbom_path = str(spec["mbom_path"])
+    mbom_base = str(spec.get("mbom_urn") or "urn:li:document:midsphere-mbom-example")
+    if "midsphere-mbom-example" in mbom_base:
         mbom_doc = f"urn:li:document:midsphere-mbom-{job_id[:8]}"
-        mbom_path = "examples/mboms/healthcare-billing-mbom.example.md"
+    else:
+        mbom_doc = mbom_base
 
+    for f in findings:
+        emit(
+            "ContextSentinel",
+            "FIND",
+            f"{f.type} severity={f.severity} entity={f.entity_urn}",
+        )
 
     emit(
         "CascadeAnalyzer",
         "STATUS",
-        "stage=CascadeAnalyzer orchestrator=deterministic selective_halt=true",
+        f"stage=CascadeAnalyzer orchestrator=deterministic selective_halt=true scenario={spec.get('scenario')}",
     )
     if live_tool_calls == 0:
         sim(
             "CascadeAnalyzer",
             "get_lineage",
-            f"urn={URN_STAGING} downstream=true max_hops=2",
+            f"urn={root_urn} downstream=true max_hops=2",
         )
 
     nodes = blast_nodes
     impacted = [n for n in nodes if n.impacted]
-    non_impacted = [n for n in nodes if not n.impacted]
 
     emit(
         "CascadeAnalyzer",

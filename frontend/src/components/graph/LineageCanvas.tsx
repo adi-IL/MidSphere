@@ -9,6 +9,7 @@ import ReactFlow, {
 import "reactflow/dist/style.css";
 
 import type { BlastNode } from "../../lib/types";
+import { resolveHotEdgeLabel } from "../../lib/demoJob";
 import { CustomNode, type NodeDataModel } from "./CustomNode";
 import { CustomEdge } from "./CustomEdge";
 import { TimeTravelBar } from "./TimeTravelBar";
@@ -88,10 +89,11 @@ export function LineageCanvas({ nodes, selectedUrn, onSelect, activeScenarioLabe
             urn: n.urn,
             reason: n.reason,
             dimmed: isDimmed,
-            rows: n.hop === 0 ? "1.2M rows" : n.hop === 1 ? "850K rows" : "420K rows",
-            latency: n.hop === 0 ? "72h stale" : "18ms",
-            riskScore: n.impacted ? (n.hop === 0 ? 88 : 72) : 0,
-            owner: n.hop === 0 ? "Ingestion Platform" : n.hop === 1 ? "Analytics Engineering" : "Executive BI",
+            // Illustrative stage chrome only — not live GMS metrics
+            rows: n.hop === 0 ? "source" : n.hop === 1 ? "staging" : "mart",
+            latency: n.impacted ? "on blast path" : "open fork",
+            riskScore: n.impacted ? (n.hop === 0 ? 70 : 55) : 0,
+            owner: n.hop === 0 ? "Ingestion" : n.hop === 1 ? "Transform" : "Analytics",
             downstreamCount: n.hop === 0 ? 3 : n.hop === 1 ? 2 : 1,
           },
           selected: n.urn === selectedUrn,
@@ -116,6 +118,7 @@ export function LineageCanvas({ nodes, selectedUrn, onSelect, activeScenarioLabe
             (parent.hop === 1 && child.hop === 2)
           ) {
             const isHot = parent.impacted && child.impacted;
+            const hotLabel = resolveHotEdgeLabel(activeScenarioLabel);
             edgesOut.push({
               id: `${parent.urn}->${child.urn}`,
               source: parent.urn,
@@ -123,9 +126,9 @@ export function LineageCanvas({ nodes, selectedUrn, onSelect, activeScenarioLabe
               type: "custom",
               data: {
                 hot: isHot,
-                label: isHot ? "PII Exposure" : "Clean Flow",
-                volume: parent.hop === 0 ? "1.2M rows" : "850K rows",
-                piiCount: isHot ? 3 : 0,
+                label: isHot ? hotLabel : "Open fork",
+                volume: parent.hop === 0 ? "hop 0→1" : "hop 1→2",
+                piiCount: isHot && hotLabel.includes("PII") ? 1 : 0,
               },
             });
           }
@@ -133,7 +136,7 @@ export function LineageCanvas({ nodes, selectedUrn, onSelect, activeScenarioLabe
       }
     }
     return edgesOut;
-  }, [activeNodes]);
+  }, [activeNodes, activeScenarioLabel]);
 
   const onNodeClick = useCallback(
     (_: unknown, node: Node) => onSelect(node.id),

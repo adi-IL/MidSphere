@@ -25,7 +25,7 @@ export function DataHubAspectsViewer({ aspects }: Props) {
           DataHub Aspects ({aspects.length})
         </span>
         <span className="rounded bg-elevated px-2 py-0.5 text-2xs text-muted border border-line">
-          GMS GraphQL Sync
+          Job aspect snapshot
         </span>
       </div>
 

@@ -236,7 +236,7 @@ export function SwarmSidebar({
           stageLogs.forEach((l) => {
             if (l.latency_ms) totalLatency += l.latency_ms;
           });
-          const metricStr = totalLatency > 0 ? `${totalLatency}ms` : done ? "180ms" : null;
+          const metricStr = totalLatency > 0 ? `${totalLatency}ms` : null;
 
           return (
             <button
