@@ -618,11 +618,36 @@ def run_closed_loop_fallback(
     return job
 
 
+def _lift_tag_urns(job: JobArtifact) -> list[str]:
+    """Tags trip writes live (and any circuit tags on the receipt)."""
+    defaults = [
+        "urn:li:tag:QUARANTINED",
+        "urn:li:tag:CIRCUIT_BROKEN",
+    ]
+    applied = list((job.quarantine.tagsApplied if job.quarantine else None) or [])
+    from_receipt = [
+        (t if t.startswith("urn:") else f"urn:li:tag:{t}")
+        for t in applied
+        if "QUARANTINED" in t or "CIRCUIT" in t
+    ]
+    # Prefer receipt tags so ecommerce/hospital stay consistent; always include defaults.
+    merged: list[str] = []
+    for t in from_receipt + defaults:
+        if t not in merged:
+            merged.append(t)
+    return merged
+
+
 def lift_quarantine(
     job: JobArtifact,
     entity_urns: list[str] | None = None,
     client: McpClient | None = None,
 ) -> JobArtifact:
+    """Lift quarantine in job state; attempt live official MCP remove_tags when possible.
+
+    Mirrors trip's add_tags symmetry: job-local gate is always updated; catalog
+    write-back only when GMS reachable + TOOLS_IS_MUTATION_ENABLED + remove_tags.
+    """
     if job.quarantine is None:
         job.events.append(
             JobEvent(
@@ -634,22 +659,144 @@ def lift_quarantine(
         )
         return job
 
-    targets = set(entity_urns or list(job.quarantine.entityUrns))
-    remaining = [u for u in job.quarantine.entityUrns if u not in targets]
+    targets = list(entity_urns or list(job.quarantine.entityUrns))
+    remaining = [u for u in job.quarantine.entityUrns if u not in set(targets)]
+    tag_urns = _lift_tag_urns(job)
+
     job.events.append(
         JobEvent(
             ts=_ts(),
             agent="CircuitBreaker",
             kind="STATUS",
-            message=f"sim remove_tags entity_urns={len(targets)} (job-local lift; no live MCP unless configured)",
+            message=(
+                f"stage=CircuitBreaker lift entity_urns={len(targets)} "
+                f"tag_urns={len(tag_urns)}"
+            ),
         )
     )
-    mcp = client or build_client_from_env()
-    try:
-        mcp.record_tool("remove_tags")
-    except Exception:  # noqa: BLE001
-        pass
 
+    mcp = client or build_client_from_env()
+    probe = mcp.probe()
+    mut_env = os.environ.get("TOOLS_IS_MUTATION_ENABLED", "false").lower() in (
+        "1",
+        "true",
+        "yes",
+    )
+    use_official = os.environ.get("USE_OFFICIAL_MCP", "true").lower() in (
+        "1",
+        "true",
+        "yes",
+    )
+    wrote_live = False
+
+    if use_official and probe.reachable and mut_env and targets:
+        try:
+            from midsphere_mcp.official import call_official_mcp, probe_official_mcp
+
+            s_url = os.environ.get("DATAHUB_GMS_URL", "http://localhost:8080")
+            s_tok = os.environ.get("DATAHUB_GMS_TOKEN", "")
+            official = probe_official_mcp(s_url, s_tok, mutations=True)
+            if official.ok and "remove_tags" in (official.tools or []):
+                live = call_official_mcp(
+                    s_url,
+                    s_tok,
+                    mutations=True,
+                    tool_calls=[
+                        (
+                            "remove_tags",
+                            {
+                                "tag_urns": tag_urns,
+                                "entity_urns": targets,
+                            },
+                        )
+                    ],
+                    timeout=90.0,
+                )
+                for c in live.calls:
+                    if c.get("ok"):
+                        wrote_live = True
+                        job.mutations_applied = True
+                        job.events.append(
+                            JobEvent(
+                                ts=_ts(),
+                                agent="CircuitBreaker",
+                                kind="TOOL",
+                                message="remove_tags official_mcp ok",
+                            )
+                        )
+                        job.events.append(
+                            JobEvent(
+                                ts=_ts(),
+                                agent="CircuitBreaker",
+                                kind="WRITE",
+                                message="remove_tags applied via official mcp-server-datahub",
+                            )
+                        )
+                    else:
+                        job.events.append(
+                            JobEvent(
+                                ts=_ts(),
+                                agent="CircuitBreaker",
+                                kind="STATUS",
+                                message=(
+                                    f"official_mcp remove_tags fail "
+                                    f"{str(c.get('error', ''))[:120]}"
+                                ),
+                            )
+                        )
+            elif official.ok:
+                job.events.append(
+                    JobEvent(
+                        ts=_ts(),
+                        agent="CircuitBreaker",
+                        kind="STATUS",
+                        message="official MCP has no remove_tags tool; job-local lift only",
+                    )
+                )
+            else:
+                job.events.append(
+                    JobEvent(
+                        ts=_ts(),
+                        agent="CircuitBreaker",
+                        kind="STATUS",
+                        message=(
+                            f"official MCP probe failed for lift: "
+                            f"{(official.error or 'unknown')[:120]}"
+                        ),
+                    )
+                )
+        except Exception as exc:  # noqa: BLE001
+            job.events.append(
+                JobEvent(
+                    ts=_ts(),
+                    agent="CircuitBreaker",
+                    kind="ERROR",
+                    message=(
+                        f"live remove_tags error: {type(exc).__name__}: "
+                        f"{str(exc)[:200]}"
+                    ),
+                )
+            )
+
+    if not wrote_live:
+        # Honest sim path (GMS down, mutations off, or live write failed)
+        job.events.append(
+            JobEvent(
+                ts=_ts(),
+                agent="CircuitBreaker",
+                kind="STATUS",
+                message=(
+                    f"sim remove_tags entity_urns={len(targets)} "
+                    "(job-local lift; no live DataHub write)"
+                ),
+            )
+        )
+        try:
+            mcp.record_tool("remove_tags")
+        except Exception:  # noqa: BLE001
+            pass
+
+    # Job-local gate always updates (Consumer Gate source of truth for MidSphere clients)
     job.quarantine.entityUrns = remaining
     if not remaining:
         job.quarantine.gateStatus = "LIFTED"
@@ -668,7 +815,10 @@ def lift_quarantine(
             ts=_ts(),
             agent="CircuitBreaker",
             kind="STATUS",
-            message=f"gate_status={job.quarantine.gateStatus} remaining={len(remaining)}",
+            message=(
+                f"gate_status={job.quarantine.gateStatus} remaining={len(remaining)} "
+                f"mutations_live={wrote_live}"
+            ),
         )
     )
     return job

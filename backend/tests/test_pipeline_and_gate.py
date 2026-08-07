@@ -98,6 +98,77 @@ def test_gate_blocked_then_lifted():
     after = evaluate_from_job(URN_BILLING, job2)
     assert after.status != "BLOCKED"
     assert after.status in ("OPEN", "LIFTED")
+    # GMS unreachable => honest sim path, not fake TOOL
+    sim_lift = [
+        e.message
+        for e in job2.events
+        if e.message.startswith("sim remove_tags")
+    ]
+    assert sim_lift, "offline lift must emit sim remove_tags"
+    assert not any(
+        e.kind == "TOOL" and "remove_tags" in e.message for e in job2.events
+    )
+    assert any("mutations_live=False" in e.message for e in job2.events)
+
+
+def test_lift_live_remove_tags_when_official_mcp_ok(monkeypatch):
+    """When official MCP reports remove_tags ok, emit real TOOL/WRITE events."""
+    from dataclasses import dataclass, field
+    from typing import Any
+
+    client = McpClient(gms_url="http://127.0.0.1:1", token="", timeout=0.2)
+    job = run_closed_loop(ROOT, auto_trip=True, client=client)
+    assert job.quarantine is not None
+
+    @dataclass
+    class _Probe:
+        ok: bool = True
+        tools: list[str] = field(default_factory=lambda: ["remove_tags", "add_tags"])
+        error: str | None = None
+        calls: list[dict[str, Any]] = field(default_factory=list)
+
+    @dataclass
+    class _Live:
+        ok: bool = True
+        calls: list[dict[str, Any]] = field(
+            default_factory=lambda: [{"tool": "remove_tags", "ok": True}]
+        )
+
+    class _Reachable:
+        reachable = True
+        detail = "mock"
+        mutations_enabled = True
+
+        def probe(self):
+            return self
+
+        def record_tool(self, *_a, **_k):
+            return None
+
+    monkeypatch.setenv("TOOLS_IS_MUTATION_ENABLED", "true")
+    monkeypatch.setenv("USE_OFFICIAL_MCP", "true")
+    monkeypatch.setattr(
+        "midsphere_mcp.official.probe_official_mcp",
+        lambda *a, **k: _Probe(),
+    )
+    monkeypatch.setattr(
+        "midsphere_mcp.official.call_official_mcp",
+        lambda *a, **k: _Live(),
+    )
+
+    job2 = lift_quarantine(job, entity_urns=[URN_BILLING], client=_Reachable())  # type: ignore[arg-type]
+    assert job2.quarantine is not None
+    assert job2.quarantine.gateStatus == "LIFTED"
+    assert job2.mutations_applied is True
+    assert any(
+        e.kind == "TOOL" and "remove_tags official_mcp ok" in e.message
+        for e in job2.events
+    )
+    assert any(
+        e.kind == "WRITE" and "remove_tags applied" in e.message for e in job2.events
+    )
+    assert not any(e.message.startswith("sim remove_tags") for e in job2.events)
+    assert any("mutations_live=True" in e.message for e in job2.events)
 
 
 def test_dry_run_skips_quarantine():
