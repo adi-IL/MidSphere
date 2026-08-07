@@ -36,7 +36,7 @@ These files are the **dry-run / offline** outputs of the closed loop. They are n
 | Mode | Behavior |
 | --- | --- |
 | Sample / offline | Job-local quarantine; simulated telemetry (`sim` / Simulated); Pipeline badge **Sample** |
-| GMS up, mutations on | Job may set `mutations_applied=true`; telemetry may show `official_mcp ok` for real tool names |
+| GMS up, mutations on | Job may set `mutations_applied=true`; telemetry may show `official_mcp ok` for real tool names (`add_tags` on trip/Run, `remove_tags` on Lift, `save_document` on MBOM) |
 | Execution modes | `antigravity_closed_loop`, `demo_closed_loop`, `live_mcp` |
 
 MCP names are unprefixed official tools only (`get_lineage`, `add_tags`, `save_document`, and the allowlist in architecture docs).

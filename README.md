@@ -31,15 +31,18 @@ The UI is minimal monochrome (no emoji). Status labels are defined as follows.
 
 | UI label | Meaning |
 | --- | --- |
-| **Live** | Frontend reached Cloud Run (`GET /v1/health` returns ok) |
-| **GMS** / **GMS off** | API GMS probe (`datahub_reachable`) |
+| **API · Job** | API is up **and** the canvas job came from the API (latest, Run, or Trip) |
+| **API · Sample** | API is up but the canvas is a local demo fixture (e.g. scenario tab without Run) |
 | **Offline** | API unreachable; sample fixtures from `frontend/src/lib/demoJob.ts` |
+| **GMS** / **GMS off** | API GMS probe (`datahub_reachable`) |
 | Pipeline **Sample** / **Agent** / **Live MCP** | Run kind derived from `execution_mode` and job source |
 | **Run** completes | Closed loop finished (Google Antigravity primary and/or deterministic fallback) |
 | Decision **Fix** / **Attestation** | Scenario paths under [`examples/`](examples/) (dry-run) |
-| Live tags / `save_document` | GMS reachable and `TOOLS_IS_MUTATION_ENABLED=true` (see job `mutations_applied`) |
+| Live tags / `save_document` / Lift `remove_tags` | GMS reachable and `TOOLS_IS_MUTATION_ENABLED=true` (see job `mutations_applied` and TOOL events) |
 
-**Operator path:** open the live app, select **Hospital**, **Retail**, or **Taxi**, click **Run**, inspect the selective graph (impacted vs open fork), use Decision **Findings / Gate / Attestation**, then **Trip / Lift**. Expand **Telemetry** for stage logs. When mutations are live, look for `official_mcp ok` lines.
+**Operator path:** open the live app, select **Hospital**, **Retail**, or **Taxi**, click **Run**, inspect the selective graph (impacted vs open fork), use Decision **Findings / Gate / Attestation**, then **Trip / Lift**. Expand **Telemetry** for stage logs. When mutations are live, look for `add_tags official_mcp ok` after trip/Run and `remove_tags official_mcp ok` after Lift (also in the Network response body).
+
+**Manual smoke checklist:** [docs/MANUAL_TEST.md](./docs/MANUAL_TEST.md).
 
 ## Closed loop
 
@@ -63,11 +66,11 @@ Trigger -> Sentinel -> Cascade -> Breaker -> Fix -> MBOM
 
 Packs are defined in `backend/agents/scenarios.py` and mirrored in Command Center fixtures.
 
-| Scenario | Risk | Quarantine target | Open fork |
-| --- | --- | --- | --- |
-| Hospital (healthcare) | 61 | `mart_billing` | `mart_demographics` |
-| Retail (ecommerce PII) | 88 | `mart_customer_360` | `mart_product_catalog` |
-| Taxi (NYC freshness) | 65 | `mart_monthly_revenue` | `mart_trip_distance_stats` |
+| Scenario | Root dataset | Risk | Quarantine target | Open fork |
+| --- | --- | --- | --- | --- |
+| Hospital (healthcare) | `healthcare.raw_patients` | 61 | `mart_billing` | `mart_demographics` |
+| Retail (ecommerce PII) | `ecommerce.raw_customers` | 88 | `mart_customer_360` | `mart_product_catalog` |
+| Taxi (NYC freshness) | `nyctaxi.raw_yellow_trips` | 65 | `mart_monthly_revenue` | `mart_trip_distance_stats` |
 
 **Timeline** (graph control, off by default) is a closed-loop narrative scrubber. It is not a live GMS history browser.
 
@@ -130,7 +133,7 @@ Cloud Run cannot use laptop `localhost` as GMS. Operators run official DataHub q
 | POST | `/v1/jobs/{id}/lift` | Lift quarantine |
 | POST | `/v1/jobs/{id}/trip` | Re-run closed loop with auto-trip |
 | GET | `/v1/gate/{urn}` | Consumer Gate decision |
-| GET | `/v1/gate-default-blocked` | Convenience gate for healthcare billing URN |
+| GET | `/v1/gate-default-blocked` | Convenience gate for healthcare `mart_billing` only (not “latest job blocked entity”) |
 
 ## Open-source contribution
 
@@ -161,7 +164,7 @@ examples/               Judge-readable sample outputs (optional but present)
   mboms/ prs/ jobs/ telemetry/
 skills/                 Upstream skill mirrors (datahub-skills PR #88)
 scripts/                Operator helpers (GCE GMS schedule, bootstrap)
-docs/                   Index of public docs (no secrets)
+docs/                   Index + MANUAL_TEST.md (judge smoke)
 ```
 
 | Path | Role for judges |
@@ -176,8 +179,9 @@ Local-only material (not part of the public product surface) is gitignored: `res
 ## Documentation
 
 1. [ARCHITECTURE.md](./ARCHITECTURE.md): shipping system contracts  
-2. [examples/README.md](./examples/README.md): scenario artifacts  
-3. [backend/README.md](./backend/README.md), [frontend/README.md](./frontend/README.md)  
+2. [docs/MANUAL_TEST.md](./docs/MANUAL_TEST.md): judge / operator manual smoke  
+3. [examples/README.md](./examples/README.md): scenario artifacts  
+4. [backend/README.md](./backend/README.md), [frontend/README.md](./frontend/README.md)  
 4. [`.github/DEPLOY.md`](./.github/DEPLOY.md): deploy isolation  
 
 ## License

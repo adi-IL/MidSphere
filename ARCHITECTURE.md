@@ -37,6 +37,7 @@ POST /v1/jobs
 | Break | `midsphere_circuit_breaker_trip` | Live `add_tags` when mutations are on; else job-local |
 | Fix | `midsphere_fix_architect` | Dry-run path under `examples/prs/*` |
 | MBOM | `midsphere_mbom_engine` | Live `save_document` when mutations are on; else `examples/mboms/*` |
+| Lift | `POST /v1/jobs/{id}/lift` → `lift_quarantine` | Live official MCP `remove_tags` when GMS + mutations; else honest `sim remove_tags` job-local. Gate always updates. |
 
 Shared packs: `backend/agents/scenarios.py`.
 
@@ -74,8 +75,13 @@ Heavier alternative: [DataHub on GKE](https://docs.datahub.com/docs/deploy/gcp).
 
 ## Consumer Gate
 
-`GET /v1/gate/{urn}` against the latest job quarantine set.  
-Lift: `POST /v1/jobs/{id}/lift` (job-local; optional live MCP when configured).
+`GET /v1/gate/{urn}` against the latest job quarantine set.
+
+Lift: `POST /v1/jobs/{id}/lift` always updates job-local gate (`LIFTED` when no entities remain). When GMS is reachable and `TOOLS_IS_MUTATION_ENABLED=true`, it also calls official MCP **`remove_tags`** (mirrors trip `add_tags`) and emits real TOOL/WRITE events; otherwise logs honest `sim remove_tags`.
+
+`GET /v1/gate-default-blocked` is a **healthcare `mart_billing` convenience probe only**. After an ecommerce latest job it correctly returns OPEN for billing (quarantine target is `mart_customer_360`). Use `GET /v1/gate/{urn}` for the actual target.
+
+`GET /v1/jobs/latest` returns **404** when the process store is empty (does not auto-run a pipeline). Clients fall back to sample fixtures or `POST /v1/jobs`.
 
 ## Command Center (frontend)
 
@@ -83,7 +89,7 @@ Minimal monochrome shell (no emoji). Default layout:
 
 | Region | Role |
 | --- | --- |
-| Top | Scenario segments (Hospital, Retail, Taxi), Live / GMS status, **Run** |
+| Top | Scenario segments (Hospital, Retail, Taxi), **API · Job** / **API · Sample** / Offline + GMS, **Run** |
 | Left Pipeline | Run kind (Sample / Agent / Live MCP), metrics strip, stage stepper; Telemetry collapsed by default |
 | Center | Selective lineage graph; optional Timeline (narrative only) |
 | Right Decision | Findings, Gate (job view + optional live `GET /v1/gate` probe), Attestation (plus More); sticky Trip / Lift |
@@ -91,6 +97,8 @@ Minimal monochrome shell (no emoji). Default layout:
 Live MCP success is recorded under `blast_radius.live_enrichment` and telemetry. Selective impact flags remain pack-driven so demos stay reliable when GMS is partial.
 
 `VITE_API_BASE_URL` is baked at build time to Cloud Run. Empty or incorrect base yields Offline status and sample fixtures.
+
+Scenario roots for live **Run** match packs and demos: `raw_patients`, `raw_customers`, `raw_yellow_trips` (see [docs/MANUAL_TEST.md](./docs/MANUAL_TEST.md)).
 
 ## Deploy isolation
 

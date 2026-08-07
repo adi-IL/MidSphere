@@ -28,10 +28,11 @@ frontend/
 
 - Minimal monochrome chrome. No emoji in product UI.
 - Progressive disclosure: Telemetry collapsed by default; Timeline off until toggled; Decision primary tabs are Findings, Gate, Attestation.
-- Status vocabulary in `lib/status.ts`: connection Live/Offline, catalog GMS on/off, run kind Sample / Agent / Live MCP.
+- Status vocabulary: TopBar **API · Job** / **API · Sample** / Offline (connection + data source), catalog GMS on/off, run kind Sample / Agent / Live MCP (`lib/status.ts`).
 - Graph is the primary surface. Side rails hold pipeline stages and decision actions (Trip / Lift).
+- Scenario roots in `lib/types.ts` match backend packs: `raw_patients`, `raw_customers`, `raw_yellow_trips`.
 
-See root [ARCHITECTURE.md](../ARCHITECTURE.md) and [README.md](../README.md).
+See root [ARCHITECTURE.md](../ARCHITECTURE.md), [README.md](../README.md), and [docs/MANUAL_TEST.md](../docs/MANUAL_TEST.md).
 
 ## Local
 
@@ -53,8 +54,9 @@ Production builds require a real Cloud Run URL in `VITE_API_BASE_URL` (project e
 ## Features
 
 - Three sample scenario fixtures (healthcare, ecommerce, nyctaxi) with simulated telemetry when offline
-- Live jobs via `POST /v1/jobs` when the API is up
-- Trip / Lift call backend for API jobs; sample path logs simulated STATUS only
+- Live jobs via `POST /v1/jobs` when the API is up; empty `GET /v1/jobs/latest` is 404 (sample boot is fine)
+- Trip / Lift call backend for API jobs (`trip` re-runs closed loop; `lift` may live-`remove_tags` when GMS + mutations)
+- Sample path (no API job) logs simulated STATUS only; failed API Trip/Lift logs honesty then local sim
 - Optional Timeline scrubber (narrative only, not GMS history)
 - Top bar GitHub control opens the public source: https://github.com/adi-IL/MidSphere
 

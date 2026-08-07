@@ -22,7 +22,7 @@ backend/
 
 ## Contracts
 
-Root [ARCHITECTURE.md](../ARCHITECTURE.md): primary workforce is the **Google Antigravity SDK** (Python package `google-antigravity`). Official DataHub MCP attaches when GMS is reachable. Stage tools may call live `get_lineage`, `add_tags`, and `save_document` when mutations are enabled. Scenario packs: healthcare, ecommerce, nyctaxi (`agents/scenarios.py`).
+Root [ARCHITECTURE.md](../ARCHITECTURE.md): primary workforce is the **Google Antigravity SDK** (Python package `google-antigravity`). Official DataHub MCP attaches when GMS is reachable. Stage tools may call live `get_lineage`, `add_tags`, and `save_document` when mutations are enabled. **Lift** calls live `remove_tags` the same way when GMS + mutations are on. Scenario packs: healthcare, ecommerce, nyctaxi (`agents/scenarios.py`). Manual smoke: [docs/MANUAL_TEST.md](../docs/MANUAL_TEST.md).
 
 ## Local
 
@@ -47,16 +47,16 @@ ANTIGRAVITY_ENABLED=false USE_OFFICIAL_MCP=false python -m pytest tests/ -q
 
 ## API
 
-| Method | Path |
-| --- | --- |
-| GET | `/v1/health` |
-| POST | `/v1/jobs` |
-| GET | `/v1/jobs/latest` | 404 when empty (no auto-pipeline) |
-| GET | `/v1/jobs/{id}` |
-| POST | `/v1/jobs/{id}/lift` |
-| POST | `/v1/jobs/{id}/trip` |
-| GET | `/v1/gate/{urn}` |
-| GET | `/v1/gate-default-blocked` |
+| Method | Path | Notes |
+| --- | --- | --- |
+| GET | `/v1/health` | `official_mcp.probed` false by default (not a failure) |
+| POST | `/v1/jobs` | Closed loop |
+| GET | `/v1/jobs/latest` | **404** when empty (no auto-pipeline) |
+| GET | `/v1/jobs/{id}` | |
+| POST | `/v1/jobs/{id}/lift` | Job gate + live `remove_tags` when GMS + mutations |
+| POST | `/v1/jobs/{id}/trip` | Re-run closed loop with auto-trip |
+| GET | `/v1/gate/{urn}` | Against latest job quarantine set |
+| GET | `/v1/gate-default-blocked` | Healthcare `mart_billing` convenience only |
 
 ## Deploy
 
