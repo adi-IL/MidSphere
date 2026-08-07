@@ -122,6 +122,8 @@ export default function App() {
     idleStatuses(),
   );
   const [bootStatus, setBootStatus] = useState("Connecting...");
+  /** Shown once when API is up but /jobs/latest is empty (404 → sample fallback). */
+  const [bootHint, setBootHint] = useState<string | null>(null);
   const cancelRef = useRef(false);
   const waitTimer = useRef<number | null>(null);
 
@@ -147,6 +149,7 @@ export default function App() {
   const applyJobArtifact = useCallback((j: JobArtifact, src: "api" | "demo") => {
     setJob(j);
     setSource(src);
+    if (src === "api") setBootHint(null);
     const firstImpacted =
       j.blast_radius.nodes.find((n) => n.impacted)?.urn ?? j.root_urn;
     setSelectedUrn(firstImpacted);
@@ -174,6 +177,13 @@ export default function App() {
       const loaded = await loadCommandJob();
       applyJobArtifact(loaded.job, loaded.source);
       seedLogsFromJob(loaded.job);
+      if (h?.status === "ok" && loaded.source === "demo") {
+        setBootHint(
+          "API reachable · no prior job on this instance — showing sample until you Run",
+        );
+      } else {
+        setBootHint(null);
+      }
     })();
     return () => {
       cancelRef.current = true;
@@ -182,6 +192,7 @@ export default function App() {
   }, [applyJobArtifact, seedLogsFromJob, clearWaitTimer]);
 
   const onSelectScenario = useCallback((id: ScenarioId) => {
+    setBootHint(null);
     setActiveScenario(id);
     let targetJob = DEMO_JOB;
     if (id === "ecommerce") targetJob = ECOMMERCE_JOB;
@@ -563,6 +574,22 @@ export default function App() {
         onSelectScenario={onSelectScenario}
         onScan={() => void onScan()}
       />
+      {bootHint ? (
+        <div
+          className="flex shrink-0 items-center justify-between gap-3 border-b border-line bg-panel px-4 py-2 text-2xs text-mute"
+          role="status"
+        >
+          <span>{bootHint}</span>
+          <button
+            type="button"
+            onClick={() => setBootHint(null)}
+            className="shrink-0 text-mute transition-colors hover:text-ink"
+            aria-label="Dismiss"
+          >
+            Dismiss
+          </button>
+        </div>
+      ) : null}
       <div className="flex min-h-0 flex-1">
         <SwarmSidebar
           agents={agents}
