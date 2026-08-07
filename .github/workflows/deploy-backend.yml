@@ -96,24 +96,11 @@ jobs:
           if gcloud run services describe "$SERVICE" \
               --region "$REGION" --project "$PROJECT_ID" >/dev/null 2>&1; then
             PREV_GMS=$(gcloud run services describe "$SERVICE" \
-              --region "$REGION" --project "$PROJECT_ID" \
-              --format='value(spec.template.spec.containers[0].env)' 2>/dev/null \
-              | tr ';' '\n' | sed -n 's/^DATAHUB_GMS_URL=\(.*\)$/\1/p' | head -1 || true)
-            # Fallback parse via yaml when format differs
-            if [[ -z "${PREV_GMS}" ]]; then
-              PREV_GMS=$(gcloud run services describe "$SERVICE" \
-                --region "$REGION" --project "$PROJECT_ID" --format=json \
-                | python3 -c "
-import json,sys
-d=json.load(sys.stdin)
-for e in d.get('spec',{}).get('template',{}).get('spec',{}).get('containers',[{}])[0].get('env') or []:
-  if e.get('name')=='DATAHUB_GMS_URL':
-    print(e.get('value') or '')
-    break
-" 2>/dev/null || true)
-            fi
+              --region "$REGION" --project "$PROJECT_ID" --format=json \
+              | python3 -c 'import json,sys; d=json.load(sys.stdin); env=(d.get("spec") or {}).get("template",{}).get("spec",{}).get("containers",[{}])[0].get("env") or []; print(next((e.get("value") or "" for e in env if e.get("name")=="DATAHUB_GMS_URL"), ""))' \
+              || true)
           fi
-          echo "Pre-deploy DATAHUB_GMS_URL=${PREV_GMS:-<unset>}"
+          echo "Pre-deploy DATAHUB_GMS_URL=${PREV_GMS:-unset}"
 
           gcloud run deploy "$SERVICE" \
             --source . \
