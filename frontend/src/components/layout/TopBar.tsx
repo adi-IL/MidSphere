@@ -1,6 +1,8 @@
-import { Github } from "lucide-react";
+import { Github, Power } from "lucide-react";
+import { useState } from "react";
 import { SCENARIOS, type ScenarioId } from "../../lib/types";
 import type { CatalogState, ConnectionState } from "../../lib/status";
+import { API_BASE } from "../../lib/api";
 
 /** Public source repository (OSS submission surface). */
 export const MIDSPHERE_GITHUB_URL = "https://github.com/adi-IL/MidSphere";
@@ -53,6 +55,19 @@ export function TopBar({
   onSelectScenario,
   onScan,
 }: Props) {
+  const [wakingGms, setWakingGms] = useState(false);
+
+  const handleWakeGms = async () => {
+    try {
+      setWakingGms(true);
+      await fetch(`${API_BASE}/system/wake-gms`, { method: "POST" });
+      // The parent component (App.tsx) handles the /health polling which will eventually set gmsOn=true
+    } catch (err) {
+      console.error("Failed to wake GMS:", err);
+      setWakingGms(false);
+    }
+  };
+
   const apiLive = connection === "live";
   const gmsOn = catalog === "on";
   // Do not say "Live" when the canvas is still sample data under a healthy API.
@@ -134,6 +149,19 @@ export function TopBar({
             label={connectionLabel}
           />
           <StatusDot on={gmsOn} label={gmsOn ? "GMS" : "GMS off"} />
+          
+          {!gmsOn && apiLive && (
+            <button
+              type="button"
+              onClick={handleWakeGms}
+              disabled={wakingGms}
+              title="Wake up live DataHub GMS environment"
+              className="ml-1 inline-flex items-center gap-1 rounded border border-line px-2 py-0.5 text-2xs text-mute transition-colors hover:border-line2 hover:text-ink disabled:opacity-50"
+            >
+              <Power className={`h-3 w-3 ${wakingGms ? "animate-pulse text-amber-500" : ""}`} />
+              {wakingGms ? "Waking..." : "Wake GMS"}
+            </button>
+          )}
         </div>
 
         <a

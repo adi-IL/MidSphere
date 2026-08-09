@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import json
 import os
+import subprocess
 from pathlib import Path
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, BackgroundTasks
 
 from agents.pipeline import URN_BILLING, lift_quarantine, run_closed_loop
 from app.settings import get_settings
@@ -194,6 +195,19 @@ def gate(urn: str) -> GateDecision:
     job = _JOBS.get(_LATEST) if _LATEST else None
     return evaluate_from_job(urn, job)
 
+
+@router.post("/system/wake-gms")
+def wake_gms(background_tasks: BackgroundTasks) -> dict:
+    """Wake up the GCE VM running DataHub GMS."""
+    background_tasks.add_task(
+        subprocess.run,
+        ["../scripts/gce_datahub_schedule.sh", "start-now"],
+        check=False
+    )
+    return {
+        "status": "waking_up",
+        "message": "GMS is starting. This takes 2-3 minutes. The API will briefly restart."
+    }
 
 @router.get("/gate-default-blocked", response_model=GateDecision)
 def gate_default_blocked() -> GateDecision:
