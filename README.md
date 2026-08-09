@@ -183,10 +183,31 @@ Cloud Run cannot use laptop `localhost` as GMS. Operators run official DataHub q
 
 ## Sample Datasets
 
-To ensure MidSphere's agents operate on realistic, complex lineage graphs, we developed three custom data environments for this project (Healthcare, Retail, NYC Taxi).
+To ensure MidSphere's agents operate on realistic, complex lineage graphs, we developed three custom data environments for this project.
 
-To keep this application repository lean and focused on the agentic engine, the raw mock data, schemas, and DataHub ingestion recipes are hosted upstream:
+Because these datasets contain raw sample data and ingestion recipes that would bloat the core application repository, they are hosted separately.
+
+### Accessing the Datasets
+
+You can view and download the full dataset schemas, mock data, and DataHub ingestion recipes here:
 **[datahub-project/static-assets/tree/main/datasets](https://github.com/datahub-project/static-assets/tree/main/datasets)**
+
+### The Environments
+
+1. **Healthcare (`healthcare/`)**: 
+   - Simulates a hospital billing and demographics pipeline.
+   - **Planted Issue:** Negative billing amounts.
+   - **MidSphere Action:** Quarantines `mart_billing`, leaves `mart_demographics` open.
+
+2. **Retail (`fiction-retail/`)**: 
+   - Simulates an e-commerce platform with customer 360 and product catalog marts.
+   - **Planted Issue:** Unmasked SSN (PII leak).
+   - **MidSphere Action:** Quarantines `mart_customer_360`.
+
+3. **NYC Taxi (`nyc-taxi/`)**: 
+   - Simulates a high-volume transit data pipeline.
+   - **Planted Issue:** Data freshness / delayed ingestion.
+   - **MidSphere Action:** Quarantines `mart_monthly_revenue`.
 
 If you are running the GCE VM Quickstart, you can use `scripts/load_healthcare.sh` in conjunction with these datasets to populate your live DataHub instance.
 
