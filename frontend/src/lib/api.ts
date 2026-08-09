@@ -1,7 +1,7 @@
 import type { GateDecision, JobArtifact } from "./types";
 import { DEMO_JOB } from "./demoJob";
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "";
+export const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "";
 
 /** Boot/health: allow cold Cloud Run wake without hanging forever. */
 const DEFAULT_TIMEOUT_MS = 45_000;
