@@ -1,3 +1,4 @@
+
 # MidSphere
 
 <p align="center">
@@ -9,13 +10,43 @@
   <em>DataHub · MCP · Google Antigravity SDK · Gemini</em>
 </p>
 
-Organizations deploy AI agents faster than they can keep catalog context trustworthy. Schema drift, quality defects, ungoverned PII, and missing ownership do not stop at an alert. Agents that continue to read the catalog inherit the damage.
+<p align="center">
+  <a href="https://github.com/adi-IL/MidSphere/actions/workflows/ci.yml"><img src="https://github.com/adi-IL/MidSphere/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
+  <a href="https://github.com/adi-IL/MidSphere/actions/workflows/deploy-frontend.yml"><img src="https://github.com/adi-IL/MidSphere/actions/workflows/deploy-frontend.yml/badge.svg" alt="Deploy frontend" /></a>
+  <a href="https://github.com/adi-IL/MidSphere/actions/workflows/deploy-backend.yml"><img src="https://github.com/adi-IL/MidSphere/actions/workflows/deploy-backend.yml/badge.svg" alt="Deploy backend" /></a>
+  <a href="./LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-black" alt="Apache 2.0" /></a>
+  <a href="https://github.com/datahub-project/datahub-skills/pull/88"><img src="https://img.shields.io/badge/upstream%20skills-datahub--skills%20%2388-black" alt="Upstream skills PR 88" /></a>
+</p>
 
-Many catalogs only record that something failed. MidSphere treats that as insufficient. It runs a closed loop that audits context, scores selective blast radius, applies **advisory** quarantine, produces a dry-run fix artifact, and leaves an **MBOM** attestation path so the next human or agent can inherit safer knowledge.
+<!-- Judge demo: record a 60 second GIF of Run -> Trip -> Lift in the Command Center,
+     save it as frontend/public/demo.gif, then uncomment this block.
+<p align="center">
+  <img src="frontend/public/demo.gif" alt="MidSphere closed loop: Run, Trip, Lift in the Command Center" width="720" />
+</p>
+-->
 
-When DataHub mutations are enabled and GMS is reachable, quarantine is written as graph state (tags, structured properties, documents). Otherwise it remains **job-local** with `mutations_applied=false`. MidSphere **Consumer Gate** returns `BLOCKED` for MidSphere-aware clients. This repository does **not** claim that every third-party MCP consumer is automatically denied by the platform.
+> **Organizations deploy AI agents faster than they can keep catalog context trustworthy.**
+>
+> Schema drift, quality defects, ungoverned PII, and missing ownership do not stop at an alert.
+> **Agents that continue to read the catalog inherit the damage.**
+
+Many catalogs only record that something failed. **MidSphere treats that as insufficient.** It runs a closed loop that **audits context**, scores **selective blast radius**, applies **advisory** quarantine, produces a **dry-run fix artifact**, and leaves an **MBOM** attestation path so the next human or agent can inherit safer knowledge.
+
+When DataHub mutations are enabled and GMS is reachable, quarantine is written as **graph state** (tags, structured properties, documents). Otherwise it remains **job-local** with `mutations_applied=false`. MidSphere **Consumer Gate** returns `BLOCKED` for MidSphere-aware clients. This repository does **not** claim that every third-party MCP consumer is automatically denied by the platform.
 
 Built for [Build with DataHub: The Agent Hackathon](https://datahub.devpost.com/).
+
+## Why not a scanner or a gateway
+
+MCP security scanners and gateways inspect tool metadata and block at the proxy. MidSphere starts where those stop.
+
+| Capability | Scanners and gateways | MidSphere |
+| --- | --- | --- |
+| Detection surface | Tool metadata and tool calls | Catalog context: quality, PII, freshness, ownership |
+| Action on finding | Alert or proxy deny | Advisory quarantine written to DataHub graph state (tags, structured properties, documents) |
+| Reversibility | Reconfigure the proxy | Lift via `remove_tags` through the official MCP server |
+| Consumer enforcement | At the gateway | Consumer Gate returns `BLOCKED` for MidSphere-aware clients only (no platform-wide claim) |
+| Evidence | Scan report | MBOM attestation and dry-run fix artifact |
 
 ## Live surfaces
 
@@ -54,10 +85,25 @@ The UI is minimal monochrome (no emoji). Status labels are defined as follows.
 | 4. Fix | `FixArchitect` | Dry-run SQL/dbt path under `examples/prs/` |
 | 5. Inherit | `MBOMEngine` | MBOM path under `examples/mboms/`; live `save_document` only if mutations are enabled |
 
-```
-Trigger -> Sentinel -> Cascade -> Breaker -> Fix -> MBOM
-              |           |         |
-              +---- DataHub MCP when GMS is configured (read; optional writes) ----+
+```mermaid
+flowchart LR
+    T([Trigger]) --> S1["ContextSentinel<br/>1 · Audit"]
+    S1 --> S2["CascadeAnalyzer<br/>2 · Topology"]
+    S2 --> S3["CircuitBreaker<br/>3 · Break"]
+    S3 --> S4["FixArchitect<br/>4 · Fix"]
+    S4 --> S5["MBOMEngine<br/>5 · Inherit"]
+
+    MCP[["DataHub MCP<br/>when GMS is configured"]]
+
+    MCP -. "read: list_schema_fields" .-> S1
+    MCP -. "read: get_lineage" .-> S2
+    MCP -. "write: add_tags / remove_tags" .-> S3
+    MCP -. "write: save_document" .-> S5
+
+    classDef stage fill:#ffffff,stroke:#333333,stroke-width:1px,color:#111111;
+    classDef mcp fill:#f5f5f5,stroke:#333333,stroke-width:1px,stroke-dasharray:4 3,color:#111111;
+    class T,S1,S2,S3,S4,S5 stage;
+    class MCP mcp;
 ```
 
 **Primary workforce:** [Google Antigravity SDK](https://github.com/google-antigravity/antigravity-sdk-python) for Python (`pip install google-antigravity`; `Agent` + `LocalAgentConfig` with custom MidSphere stage tools on Vertex Gemini). Official DataHub MCP attaches when GMS is reachable. Stage tools may call `get_lineage`, `list_schema_fields`, `add_tags`, and `save_document` when mutations are enabled. On Agent failure, a deterministic fallback completes the job with simulated telemetry labels when offline.
@@ -135,6 +181,15 @@ Cloud Run cannot use laptop `localhost` as GMS. Operators run official DataHub q
 | GET | `/v1/gate/{urn}` | Consumer Gate decision |
 | GET | `/v1/gate-default-blocked` | Convenience gate for healthcare `mart_billing` only (not “latest job blocked entity”) |
 
+## Sample Datasets
+
+To ensure MidSphere's agents operate on realistic, complex lineage graphs, we developed three custom data environments for this project (Healthcare, Retail, NYC Taxi).
+
+To keep this application repository lean and focused on the agentic engine, the raw mock data, schemas, and DataHub ingestion recipes are hosted upstream:
+**[datahub-project/static-assets/tree/main/datasets](https://github.com/datahub-project/static-assets/tree/main/datasets)**
+
+If you are running the GCE VM Quickstart, you can use `scripts/load_healthcare.sh` in conjunction with these datasets to populate your live DataHub instance.
+
 ## Open-source contribution
 
 Upstream skills PR (open):  
@@ -147,24 +202,27 @@ Local mirrors: [`skills/`](skills/).
 Public OSS tree aligned with common monorepo practice and the hackathon submission requirements (public source, Apache 2.0, setup instructions, optional sample artifacts):
 
 ```
-LICENSE                 Apache 2.0 (required; visible at repo root)
-README.md               Overview, honesty table, quick start
-ARCHITECTURE.md         Shipping contracts (short)
-.env.example            Env template (no secrets)
-.gitignore
-.github/                CI + deploy workflows
-  DEPLOY.md
-  workflows/
-backend/                Closed-loop API (Cloud Run)
-  app/ api/ agents/ gate/ midsphere_mcp/ models/ tests/
-  requirements.txt Dockerfile
-frontend/               Command Center (Vercel)
-  src/ public/ package.json
-examples/               Judge-readable sample outputs (optional but present)
-  mboms/ prs/ jobs/ telemetry/
-skills/                 Upstream skill mirrors (datahub-skills PR #88)
-scripts/                Operator helpers (GCE GMS schedule, bootstrap)
-docs/                   Index + MANUAL_TEST.md (judge smoke)
+.
+├── LICENSE             Apache 2.0 (required; visible at repo root)
+├── README.md           Overview, honesty table, quick start
+├── ARCHITECTURE.md     Shipping contracts (short)
+├── .env.example        Env template (no secrets)
+├── .gitignore
+├── .github/            CI + deploy workflows
+│   ├── DEPLOY.md
+│   └── workflows/
+├── backend/            Closed-loop API (Cloud Run)
+│   ├── app/ api/ agents/ gate/ midsphere_mcp/ models/ tests/
+│   ├── requirements.txt
+│   └── Dockerfile
+├── frontend/           Command Center (Vercel)
+│   ├── src/ public/
+│   └── package.json
+├── examples/           Judge-readable sample outputs (optional but present)
+│   └── mboms/ prs/ jobs/ telemetry/
+├── skills/             Upstream skill mirrors (datahub-skills PR #88)
+├── scripts/            Operator helpers (GCE GMS schedule, bootstrap)
+└── docs/               Index + MANUAL_TEST.md (judge smoke)
 ```
 
 | Path | Role for judges |
@@ -182,7 +240,7 @@ Local-only material (not part of the public product surface) is gitignored: `res
 2. [docs/MANUAL_TEST.md](./docs/MANUAL_TEST.md): judge / operator manual smoke  
 3. [examples/README.md](./examples/README.md): scenario artifacts  
 4. [backend/README.md](./backend/README.md), [frontend/README.md](./frontend/README.md)  
-4. [`.github/DEPLOY.md`](./.github/DEPLOY.md): deploy isolation  
+5. [`.github/DEPLOY.md`](./.github/DEPLOY.md): deploy isolation  
 
 ## License
 
