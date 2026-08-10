@@ -2,7 +2,7 @@
 # MidSphere
 
 <p align="center">
-  <img src="frontend/public/logo.png" alt="MidSphere Autonomous Context Circuit-Breaker Engine" width="360" />
+  <img src="frontend/public/logo-sm.png" alt="MidSphere Autonomous Context Circuit-Breaker Engine" width="360" />
 </p>
 
 <p align="center">
