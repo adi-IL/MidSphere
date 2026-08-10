@@ -16,6 +16,7 @@ interface Props {
   activeScenario?: ScenarioId;
   onSelectScenario?: (id: ScenarioId) => void;
   onScan: () => void;
+  onWakeGms?: () => void;
 }
 
 const SCENARIO_SHORT: Record<ScenarioId, string> = {
@@ -54,6 +55,7 @@ export function TopBar({
   activeScenario = "healthcare",
   onSelectScenario,
   onScan,
+  onWakeGms,
 }: Props) {
   const [wakingGms, setWakingGms] = useState(false);
 
@@ -66,6 +68,7 @@ export function TopBar({
   const handleWakeGms = async () => {
     try {
       setWakingGms(true);
+      onWakeGms?.();
       await fetch(`${API_BASE}/system/wake-gms`, { method: "POST" });
       // 180s fallback timeout to reset button if GMS VM fails to boot
       setTimeout(() => {
@@ -76,6 +79,7 @@ export function TopBar({
       setWakingGms(false);
     }
   };
+
 
 
   const apiLive = connection === "live";

@@ -191,23 +191,40 @@ export default function App() {
     };
   }, [applyJobArtifact, seedLogsFromJob, clearWaitTimer]);
 
+  const [isWakingGms, setIsWakingGms] = useState(false);
+
+  const handleTriggerWakeGms = useCallback(() => {
+    setIsWakingGms(true);
+    setBootHint(
+      "⚡ Triggered GCE VM wake-up — DataHub GMS starting (~2–3 min). Auto-checking health every 5 seconds...",
+    );
+  }, []);
+
   // Periodically check health when GMS is offline to detect boot completion automatically
   useEffect(() => {
     if (connection !== "live" || catalog === "on") return;
     const interval = setInterval(async () => {
       const h = await fetchHealth();
       if (h?.status === "ok") {
+        const isReachable = h.datahub_reachable === true;
         setCatalog(
-          h.datahub_reachable === true
+          isReachable
             ? "on"
             : h.datahub_reachable === false
               ? "off"
               : "unknown",
         );
+        if (isReachable) {
+          setBootHint(
+            "🎉 DataHub GMS is Live & Reachable! Official MCP tools connected.",
+          );
+          setIsWakingGms(false);
+        }
       }
-    }, 10000);
+    }, isWakingGms ? 5000 : 10000);
     return () => clearInterval(interval);
-  }, [connection, catalog]);
+  }, [connection, catalog, isWakingGms]);
+
 
 
   const onSelectScenario = useCallback((id: ScenarioId) => {
@@ -592,7 +609,9 @@ export default function App() {
         activeScenario={activeScenario}
         onSelectScenario={onSelectScenario}
         onScan={() => void onScan()}
+        onWakeGms={handleTriggerWakeGms}
       />
+
       {bootHint ? (
         <div
           className="flex shrink-0 items-center justify-between gap-3 border-b border-line bg-panel px-4 py-2 text-2xs text-mute"
