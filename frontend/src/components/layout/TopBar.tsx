@@ -1,5 +1,5 @@
 import { Github, Power } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { SCENARIOS, type ScenarioId } from "../../lib/types";
 import type { CatalogState, ConnectionState } from "../../lib/status";
 import { API_BASE } from "../../lib/api";
@@ -57,16 +57,26 @@ export function TopBar({
 }: Props) {
   const [wakingGms, setWakingGms] = useState(false);
 
+  useEffect(() => {
+    if (catalog === "on" && wakingGms) {
+      setWakingGms(false);
+    }
+  }, [catalog, wakingGms]);
+
   const handleWakeGms = async () => {
     try {
       setWakingGms(true);
       await fetch(`${API_BASE}/system/wake-gms`, { method: "POST" });
-      // The parent component (App.tsx) handles the /health polling which will eventually set gmsOn=true
+      // 180s fallback timeout to reset button if GMS VM fails to boot
+      setTimeout(() => {
+        setWakingGms(false);
+      }, 180000);
     } catch (err) {
       console.error("Failed to wake GMS:", err);
       setWakingGms(false);
     }
   };
+
 
   const apiLive = connection === "live";
   const gmsOn = catalog === "on";

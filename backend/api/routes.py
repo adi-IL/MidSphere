@@ -196,18 +196,27 @@ def gate(urn: str) -> GateDecision:
     return evaluate_from_job(urn, job)
 
 
+def _run_wake_script() -> None:
+    try:
+        subprocess.run(
+            ["./gce_datahub_schedule.sh", "wake-fast"],
+            check=False,
+            timeout=30,
+            capture_output=True,
+        )
+    except Exception as exc:  # noqa: BLE001
+        print(f"wake_gms error: {exc}")
+
+
 @router.post("/system/wake-gms")
 def wake_gms(background_tasks: BackgroundTasks) -> dict:
     """Wake up the GCE VM running DataHub GMS."""
-    background_tasks.add_task(
-        subprocess.run,
-        ["./gce_datahub_schedule.sh", "start-now"],
-        check=False
-    )
+    background_tasks.add_task(_run_wake_script)
     return {
         "status": "waking_up",
-        "message": "GMS is starting. This takes 2-3 minutes. The API will briefly restart."
+        "message": "GMS is starting. This takes 2-3 minutes. The API will poll health.",
     }
+
 
 @router.get("/gate-default-blocked", response_model=GateDecision)
 def gate_default_blocked() -> GateDecision:

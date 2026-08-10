@@ -183,6 +183,12 @@ cmd_remove() {
   echo "Removed."
 }
 
+cmd_wake_fast() {
+  echo "Waking $INSTANCE now (fast non-blocking mode)..."
+  gcloud compute instances start "$INSTANCE" --project="$PROJECT" --zone="$ZONE" --quiet || true
+  cmd_status
+}
+
 usage() {
   sed -n '1,25p' "$0"
 }
@@ -192,6 +198,8 @@ case "${1:-}" in
   status) cmd_status ;;
   stop-now|stop) cmd_stop_now ;;
   start-now|start) cmd_start_now ;;
+  wake-fast|start-fast) cmd_wake_fast ;;
   remove) cmd_remove ;;
   *) usage; exit 1 ;;
 esac
+

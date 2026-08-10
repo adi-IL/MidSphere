@@ -191,6 +191,25 @@ export default function App() {
     };
   }, [applyJobArtifact, seedLogsFromJob, clearWaitTimer]);
 
+  // Periodically check health when GMS is offline to detect boot completion automatically
+  useEffect(() => {
+    if (connection !== "live" || catalog === "on") return;
+    const interval = setInterval(async () => {
+      const h = await fetchHealth();
+      if (h?.status === "ok") {
+        setCatalog(
+          h.datahub_reachable === true
+            ? "on"
+            : h.datahub_reachable === false
+              ? "off"
+              : "unknown",
+        );
+      }
+    }, 10000);
+    return () => clearInterval(interval);
+  }, [connection, catalog]);
+
+
   const onSelectScenario = useCallback((id: ScenarioId) => {
     setBootHint(null);
     setActiveScenario(id);
