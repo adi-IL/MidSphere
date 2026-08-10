@@ -201,7 +201,7 @@ def wake_gms(background_tasks: BackgroundTasks) -> dict:
     """Wake up the GCE VM running DataHub GMS."""
     background_tasks.add_task(
         subprocess.run,
-        ["../scripts/gce_datahub_schedule.sh", "start-now"],
+        ["./gce_datahub_schedule.sh", "start-now"],
         check=False
     )
     return {

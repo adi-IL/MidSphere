@@ -23,6 +23,7 @@ COPY agents ./agents
 COPY gate ./gate
 COPY midsphere_mcp ./midsphere_mcp
 COPY models ./models
+COPY gce_datahub_schedule.sh ./
 COPY README.md ./
 
 ENV PORT=8080
