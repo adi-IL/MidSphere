@@ -180,6 +180,28 @@ def test_dry_run_skips_quarantine():
     assert decision.status == "OPEN"
 
 
+def test_evaluate_from_job_quarantine_states():
+    # None job
+    d1 = evaluate_from_job(URN_BILLING, None)
+    assert d1.status == "OPEN"
+
+    # Blocked job
+    client = McpClient(gms_url="http://127.0.0.1:1", timeout=0.2)
+    job = run_closed_loop(ROOT, auto_trip=True, client=client)
+    d2 = evaluate_from_job(URN_BILLING, job)
+    assert d2.status == "BLOCKED"
+
+    # Unaffected entity in blocked job
+    d_unaffected = evaluate_from_job(URN_DEMOGRAPHICS, job)
+    assert d_unaffected.status == "OPEN"
+
+    # Lifted job
+    job.quarantine.gateStatus = "LIFTED"
+    d3 = evaluate_from_job(URN_BILLING, job)
+    assert d3.status == "LIFTED"
+    assert "lifted" in d3.reason.lower()
+
+
 def test_stage_tools_builder_antigravity_path():
     """Custom tools produce a complete antigravity_closed_loop artifact."""
     from agents.stage_tools import MidSphereJobBuilder

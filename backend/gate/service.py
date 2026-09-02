@@ -36,25 +36,14 @@ def evaluate_from_job(urn: str, job: JobArtifact | None) -> GateDecision:
             policy=GATE_POLICY,
         )
 
-    if q.gateStatus == "LIFTED" or (
-        urn not in q.entityUrns and q.gateStatus in ("LIFTED", "BLOCKED", "OPEN")
-    ):
-        # Lifted or never in active set after reverse
-        if q.gateStatus == "LIFTED" or urn not in q.entityUrns:
-            status = "LIFTED" if q.gateStatus == "LIFTED" and not q.entityUrns else "OPEN"
-            # After selective lift of this urn, OPEN/LIFTED  -  never BLOCKED
-            if urn not in q.entityUrns:
-                return GateDecision(
-                    urn=urn,
-                    status="LIFTED" if q.gateStatus == "LIFTED" else "OPEN",
-                    reason=(
-                        "Quarantine lifted or entity not in active BLOCKED set"
-                        if q.gateStatus == "LIFTED" or status == "LIFTED"
-                        else "Entity not in active quarantine set"
-                    ),
-                    job_id=job.job_id,
-                    policy=GATE_POLICY,
-                )
+    if q.gateStatus == "LIFTED":
+        return GateDecision(
+            urn=urn,
+            status="LIFTED",
+            reason="Quarantine lifted for entity or dataset",
+            job_id=job.job_id,
+            policy=GATE_POLICY,
+        )
 
     return GateDecision(
         urn=urn,
