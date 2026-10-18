@@ -16,7 +16,7 @@ Manual runs: GitHub Actions, select workflow, **Run workflow**.
 1. Separate workflows with `paths:` filters so only the changed surface deploys.
 2. Vercel via CLI in Actions (`pull` then `build --prod` then `deploy --prebuilt`). See [Vercel + GitHub Actions](https://vercel.com/kb/guide/how-can-i-use-github-actions-with-vercel).
 3. Cloud Run via `gcloud run deploy --source` with Workload Identity Federation (OIDC). No JSON service-account key in git.
-4. Backend deploy requires `id-token: write` for `google-github-actions/auth@v2`.
+4. Backend deploy requires `id-token: write` for `google-github-actions/auth@v3`.
 5. Backend tests run with `ANTIGRAVITY_ENABLED=false` for deterministic CI.
 6. Production still needs a static `VERCEL_TOKEN` secret (no Vercel OIDC deploy path in this repo).
 7. Frontend `vercel.json` sets `"git": { "deploymentEnabled": false }` so only Actions deploys production.
